@@ -42,6 +42,9 @@ input{-webkit-user-select:text;user-select:text}
 #pmap{position:relative;height:min(50vh,460px);border-radius:10px;overflow:hidden;border:1px solid rgba(243,239,232,.2);background:#20223a}
 .pmapMsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:12px}
 #qRes:empty{display:none}
+#pmap .leaflet-container,#pmap{touch-action:none}
+#pmap img{max-width:none!important}
+#picker .card{gap:10px}
 #gkey{flex:1;min-width:0;font:600 13px var(--mono);padding:10px 12px;border-radius:8px;border:1px solid rgba(243,239,232,.3);background:rgba(12,13,30,.6);color:var(--paper)}
 .mapPanel{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid rgba(243,239,232,.18);border-radius:10px;background:rgba(12,13,30,.5)}
 .ovl button.bigplay{font:800 20px var(--display);letter-spacing:.08em;text-transform:uppercase;padding:12px 30px}
@@ -155,6 +158,7 @@ input{-webkit-user-select:text;user-select:text}
       <button class="opt" data-size="1000">1 km</button><button class="opt" data-size="1600">1.6 km</button><button class="opt" data-size="2400">2.4 km</button></div>
     <div class="lbl">Try a skyline</div>
     <div class="row" id="presets"></div>
+    <div class="padStat" id="pickNote"></div>
     <div class="row"><button class="opt primary" id="buildHere">Build here</button><button class="opt" id="pCancel">Cancel</button><button class="opt" id="pSLC">Back to Salt Lake City</button></div>
     <p class="note">Drag the map so the square covers the area you want. Building data comes from OpenStreetMap through the free Overpass service, so a dense downtown can take up to a minute to download the first time. After that it is saved on this device. Bigger areas load slower on a phone.</p>
   </div>
@@ -255,32 +259,33 @@ const [wallTex,litTex]=windowTex();
 /* ---------- terrain (AWS Terrain Tiles, Terrarium encoding) ---------- */
 /* ---------- place picker (Leaflet + Nominatim) ---------- */
 const PRESETS=[['Salt Lake City',40.76615,-111.89325,null],['Manhattan, Midtown',40.7549,-73.9840],['Chicago Loop',41.8810,-87.6298],['Seattle',47.6062,-122.3348],['San Francisco',37.7921,-122.3984],['London, The City',51.5136,-0.0890],['Paris, La Défense',48.8924,2.2381],['Hong Kong, Central',22.2810,114.1588],['Tokyo, Shinjuku',35.6909,139.6950],['Dubai Marina',25.0805,55.1403]];
-let pMap=null,pRect=null,pSize=(settings.place&&settings.place.size)||1600,pName=null;
+const LF=()=>window.L;let pCenter=null,pMap=null,pRect=null,pSize=(settings.place&&settings.place.size)||1600,pName=null;
 function loadLeaflet(){if(window.L)return Promise.resolve();return new Promise((res,rej)=>{const l=document.createElement('link');l.rel='stylesheet';l.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(l);
  const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.onload=res;s.onerror=()=>rej(new Error('map library failed to load'));document.head.appendChild(s);});}
+function setPickNote(t){const e=$('pickNote');if(e)e.textContent=t;}
 function sqBounds(c){const h=pSize/2,dl=h/110540,dn=h/(111320*Math.cos(c.lat*Math.PI/180));return[[c.lat-dl,c.lng-dn],[c.lat+dl,c.lng+dn]];}
 function syncSizes(){for(const b of document.querySelectorAll('#sizes button'))b.setAttribute('aria-pressed',+b.dataset.size===pSize);if(pMap&&pRect)pRect.setBounds(sqBounds(pMap.getCenter()));}
 async function openPicker(){
  $('picker').hidden=false;syncSizes();
  const pr=$('presets');if(!pr.children.length)for(const p of PRESETS){const b=document.createElement('button');b.className='opt';b.textContent=p[0];b.addEventListener('click',()=>{pName=p[0];if(pMap)pMap.setView([p[1],p[2]],15);else{settings.place=p[3]===null?null:{name:p[0],lat:p[1],lon:p[2],size:pSize};settings.tilesDH=0;saveSettings();location.reload();}});pr.appendChild(b);}
- try{await loadLeaflet();}catch(e){$('pmapMsg').textContent='The map could not load. Check your connection, or pick a preset.';return;}
+ try{await loadLeaflet();if(!LF()||!LF().map)throw new Error('map library missing');}catch(e){$('pmapMsg').textContent='The map could not load. Search for a place or use your location, then tap Build here.';return;}
  $('pmapMsg').hidden=true;
  const c=settings.place?[settings.place.lat,settings.place.lon]:[40.76615,-111.89325];
- if(!pMap){pMap=L.map('pmap',{zoomControl:true,attributionControl:true}).setView(c,15);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(pMap);
-  pRect=L.rectangle(sqBounds(pMap.getCenter()),{color:'#ffc96b',weight:2,fillOpacity:0.08,interactive:false}).addTo(pMap);
-  pMap.on('move',()=>pRect.setBounds(sqBounds(pMap.getCenter())));pMap.on('dragstart',()=>{pName=null;});}
- setTimeout(()=>pMap.invalidateSize(),60);
+ if(!pMap){pMap=LF().map('pmap',{zoomControl:true,attributionControl:true}).setView(c,15);
+  LF().tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(pMap);
+  pRect=LF().rectangle(sqBounds(pMap.getCenter()),{color:'#ffc96b',weight:2,fillOpacity:0.08,interactive:false}).addTo(pMap);
+  pMap.on('move',()=>pRect.setBounds(sqBounds(pMap.getCenter())));pMap.on('dragstart',()=>{pName=null;pCenter=null;setPickNote('');});}
+ setTimeout(()=>pMap.invalidateSize(),60);setTimeout(()=>pMap.invalidateSize(),400);
 }
 async function geocode(){
  const q=$('q').value.trim();if(!q)return;const box=$('qRes');box.textContent='Searching…';
  try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q='+encodeURIComponent(q),{headers:{'Accept-Language':navigator.language||'en'}});const j=await r.json();box.textContent='';
   if(!j.length){box.textContent='No matches. Try a city name.';return;}
-  for(const it of j){const b=document.createElement('button');b.className='opt';const nm=it.display_name.split(',').slice(0,2).join(',');b.textContent=nm;b.addEventListener('click',()=>{pName=nm;pMap&&pMap.setView([+it.lat,+it.lon],16);box.textContent='';});box.appendChild(b);}
+  for(const it of j){const b=document.createElement('button');b.className='opt';const nm=it.display_name.split(',').slice(0,2).join(',');b.textContent=nm;b.addEventListener('click',()=>{pName=nm;pCenter={lat:+it.lat,lng:+it.lon};if(pMap)pMap.setView([+it.lat,+it.lon],16);box.textContent='';setPickNote('Selected: '+nm);});box.appendChild(b);}
  }catch(e){box.textContent='Search is unavailable right now. Drag the map instead.';}
 }
 async function buildHere(){
- if(!pMap)return;const c=pMap.getCenter();let name=pName;
+ const c=pMap?pMap.getCenter():pCenter;if(!c){setPickNote('Search for a place or pick a preset first.');return;}let name=pName;$('buildHere').disabled=true;$('buildHere').textContent='Building…';
  if(!name){try{const ac=new AbortController();setTimeout(()=>ac.abort(),3500);const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&lat=${c.lat}&lon=${c.lng}`,{signal:ac.signal});const j=await r.json();const a=j.address||{};
   name=[a.neighbourhood||a.suburb||a.quarter||a.city_district,a.city||a.town||a.village].filter(Boolean).join(', ')||(j.name||'');}catch(e){}}
  if(!name)name=`Area at ${c.lat.toFixed(3)}, ${c.lng.toFixed(3)}`;
@@ -294,7 +299,7 @@ $('buildHere').addEventListener('click',buildHere);
 $('qGo').addEventListener('click',geocode);
 $('q').addEventListener('keydown',e=>{if(e.key==='Enter')geocode();});
 $('qMe').addEventListener('click',()=>{if(!navigator.geolocation){$('qRes').textContent='Location is not available in this browser.';return;}
- navigator.geolocation.getCurrentPosition(p=>{pName=null;pMap&&pMap.setView([p.coords.latitude,p.coords.longitude],16);},()=>{$('qRes').textContent='Location permission was denied.';},{enableHighAccuracy:false,timeout:8000});});
+ navigator.geolocation.getCurrentPosition(p=>{pName=null;pCenter={lat:p.coords.latitude,lng:p.coords.longitude};if(pMap)pMap.setView([p.coords.latitude,p.coords.longitude],16);setPickNote('Selected: your location');},()=>{$('qRes').textContent='Location permission was denied.';},{enableHighAccuracy:false,timeout:8000});});
 for(const b of document.querySelectorAll('#sizes button'))b.addEventListener('click',()=>{pSize=+b.dataset.size;syncSizes();});
 
 /* ---------- place selection & OpenStreetMap download ---------- */
@@ -1191,31 +1196,51 @@ function tileFindZip(){
  const L=Math.hypot(h.nx,h.nz)||1,n=new V3(h.nx/L,0,h.nz/L);
  return{edge:pt,end:pt.clone().addScaledVector(n,0.55).add(new V3(0,-1,0)),wallN:n};
 }
-// returns true if it handled collision for this substep
+// Hybrid surface model: the live Google mesh decides WHERE a surface is; map footprints and
+// multi-ray filtering decide its clean ORIENTATION, so contact stays smooth on lumpy photogrammetry.
+const _hn={x:0,z:0};
+function cleanWallNormal(h,px,py,pz){
+ let nx=h.nx,nz=h.nz,L=Math.hypot(nx,nz)||1;nx/=L;nz/=L;
+ // 1) snap to the matching map wall when one is nearby and roughly parallel
+ query(h.x-3,h.z-3,h.x+3,h.z+3,QB);let best=0.86,bx=0,bz=0;
+ for(const b of QB){if(h.y<b.y0-1||h.y>b.ytop+2)continue;if(!closestEdge(b,h.x,h.z)||CE.d>3)continue;const d=CE.nx*nx+CE.nz*nz;if(d>best){best=d;bx=CE.nx;bz=CE.nz;}}
+ if(best>0.86){_hn.x=bx;_hn.z=bz;return _hn;}
+ // 2) otherwise average three parallel rays and drop the vertical component
+ const tx=nz,tz=-nx;let sx=nx,sz=nz;
+ for(const o of[-0.6,0.6]){const r=castT(px+tx*o+nx*0.6,py,pz+tz*o+nz*0.6,-nx,0,-nz,2.2);if(r&&Math.abs(r.ny)<0.7){const l=Math.hypot(r.nx,r.nz)||1;sx+=r.nx/l;sz+=r.nz/l;}}
+ L=Math.hypot(sx,sz)||1;_hn.x=sx/L;_hn.z=sz/L;return _hn;
+}
+function groundSample(x,y,z,far){
+ const c=castDown(x,y,z,far);if(!c||c.ny<0.45)return null;
+ const ys=[c.y];for(const[ox,oz]of[[0.35,0],[-0.35,0],[0,0.35],[0,-0.35]]){const r=castDown(x+ox,y,z+oz,far+0.6);if(r&&r.ny>0.45&&Math.abs(r.y-c.y)<0.8)ys.push(r.y);}
+ ys.sort((a,b)=>a-b);return ys[ys.length>>1];
+}
 function tileCollide(p,v,inp,wish,dt){
- const R=0.4;P.grounded=false;let wall=null;const hs=Math.hypot(v.x,v.z);
- // ground
- const g=castDown(p.x,p.y+1.0,p.z,1.0+Math.max(0,-v.y)*dt*1.6+0.3);
- if(g&&g.ny>0.45){if(p.y<=g.y+0.05){p.y=g.y;if(v.y<0)v.y=0;P.grounded=true;}}
+ const R=0.4,wasG=P.grounded;P.grounded=false;let wall=null;const hs=Math.hypot(v.x,v.z);
+ // ground: median of five rays, then eased so tile detail changes and bumps don't jitter the hero
+ const gy=groundSample(p.x,p.y+1.0,p.z,1.0+Math.max(0,-v.y)*dt*1.6+0.3);
+ if(gy!==null){if(p.y<=gy+0.05||(wasG&&v.y<=0.5&&p.y-gy<0.35)){const dd=gy-p.y;p.y=(wasG&&Math.abs(dd)<0.35)?p.y+dd*Math.min(1,dt*22):gy;if(p.y<gy-0.12)p.y=gy-0.12;if(v.y<0)v.y=0;P.grounded=true;}}
  else{const th=heightAt(p.x,p.z)-2;if(p.y<=th){p.y=th;if(v.y<0)v.y=0;P.grounded=true;}}
  if(P.state==='wall'){
   const n=P.wallN,h=castT(p.x+n.x*0.6,p.y+1.0,p.z+n.z*0.6,-n.x,0,-n.z,1.7);
-  if(h&&Math.abs(h.ny)<0.7){const L=Math.hypot(h.nx,h.nz)||1;n.set(h.nx/L,0,h.nz/L);p.x=h.x+n.x*R;p.z=h.z+n.z*R;if(P.grounded&&inp.my<0)setState('ground');}
-  else{const tx=p.x-n.x*0.9,tz=p.z-n.z*0.9,top=castDown(tx,p.y+3.2,tz,4.5);
-   if(top&&top.ny>0.5){p.set(tx,top.y+0.05,tz);v.set(-n.x*4,4.5,-n.z*4);setState('air');sfx.land();}
-   else{// wrap around a convex corner in the direction of travel
-    const tx2=n.z,tz2=-n.x,lat=v.x*tx2+v.z*tz2,sg=lat>=0?1:-1,ox=p.x+tx2*sg*0.9-n.x*0.9,oz=p.z+tz2*sg*0.9-n.z*0.9;
+  if(h&&Math.abs(h.ny)<0.7){const cn=cleanWallNormal(h,p.x,p.y+1.0,p.z);const dot=cn.x*n.x+cn.z*n.z;
+   if(dot>0.65){const k=Math.min(1,dt*10);n.set(n.x+(cn.x-n.x)*k,0,n.z+(cn.z-n.z)*k).normalize();}else n.set(cn.x,0,cn.z);
+   // keep a steady standoff from the wall measured along the clean normal
+   const off=(p.x-h.x)*n.x+(p.z-h.z)*n.z,corr=(R-off)*Math.min(1,dt*18);p.x+=n.x*corr;p.z+=n.z*corr;
+   if(P.grounded&&inp.my<0)setState('ground');}
+  else{const tx=p.x-n.x*0.9,tz=p.z-n.z*0.9,top=groundSample(tx,p.y+3.2,tz,4.5);
+   if(top!==null){p.set(tx,top+0.05,tz);v.set(-n.x*4,4.5,-n.z*4);setState('air');sfx.land();}
+   else{const tx2=n.z,tz2=-n.x,lat=v.x*tx2+v.z*tz2,sg=lat>=0?1:-1,ox=p.x+tx2*sg*0.9-n.x*0.9,oz=p.z+tz2*sg*0.9-n.z*0.9;
     const c=castT(ox,p.y+1.0,oz,-tx2*sg,0,-tz2*sg,1.6);
-    if(c&&Math.abs(c.ny)<0.7){const L=Math.hypot(c.nx,c.nz)||1;n.set(c.nx/L,0,c.nz/L);p.x=c.x+n.x*R;p.z=c.z+n.z*R;}
+    if(c&&Math.abs(c.ny)<0.7){const cn=cleanWallNormal(c,ox,p.y+1.0,oz);n.set(cn.x,0,cn.z);p.x=c.x+n.x*R;p.z=c.z+n.z*R;}
     else{P.wallCd=0.3;v.set(n.x*3,Math.max(v.y,0),n.z*3);setState('air');}}}
  }else{
   if(hs>0.2){const ux=v.x/hs,uz=v.z/hs,px=p.x-v.x*dt,pz=p.z-v.z*dt;
    const h=castT(px-ux*0.05,p.y+1.0,pz-uz*0.05,ux,0,uz,hs*dt+R+0.1);
-   if(h&&Math.abs(h.ny)<0.6){const L=Math.hypot(h.nx,h.nz)||1,nx=h.nx/L,nz=h.nz/L;
-    // small ledge or stair: step up instead of treating it as a wall
-    const st=castDown(h.x-nx*0.35,p.y+1.6,h.z-nz*0.35,1.6);
-    if(P.grounded&&st&&st.ny>0.6&&st.y-p.y<1.2){p.x=h.x-nx*0.35;p.z=h.z-nz*0.35;p.y=st.y;}
-    else{p.x=h.x+nx*R;p.z=h.z+nz*R;const vn=v.x*nx+v.z*nz;if(vn<0){v.x-=nx*vn;v.z-=nz*vn;}wall=[nx,nz,null,-vn];}}}
+   if(h&&Math.abs(h.ny)<0.6){const cn=cleanWallNormal(h,px,p.y+1.0,pz),nx=cn.x,nz=cn.z;
+    const st=groundSample(h.x-nx*0.35,p.y+1.6,h.z-nz*0.35,1.6);
+    if(P.grounded&&st!==null&&st-p.y<1.2){p.x=h.x-nx*0.35;p.z=h.z-nz*0.35;p.y=st;}
+    else{const off=(p.x-h.x)*nx+(p.z-h.z)*nz;if(off<R){p.x+=nx*(R-off);p.z+=nz*(R-off);}const vn=v.x*nx+v.z*nz;if(vn<0){v.x-=nx*vn;v.z-=nz*vn;}wall=[nx,nz,null,-vn];}}}
   if(wall&&P.wallCd<=0&&(P.state==='air'||P.state==='swing'||P.state==='ground')){
    const nx=wall[0],nz=wall[1],into=-(wish.x*nx+wish.z*nz),ok=P.state==='ground'?into>0.6:(P.state==='swing'||into>-0.3||wall[3]>4);
    const above=castT(p.x+nx*0.6,p.y+2.6,p.z+nz*0.6,-nx,0,-nz,1.6);
