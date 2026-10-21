@@ -140,7 +140,7 @@ input{-webkit-user-select:text;user-select:text}
       <div class="row"><button class="opt" id="modeOSM" aria-pressed="true">OpenStreetMap (free)</button><button class="opt" id="modeG" aria-pressed="false">Google 3D tiles</button></div>
       <label class="lbl" for="gkey">Google Map Tiles API key</label>
       <div class="row"><input id="gkey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…"><button class="opt" id="gsave">Save key</button></div>
-      <div class="row"><button class="opt" id="detail" aria-pressed="false">Tile detail: normal</button><button class="opt" id="colMode" aria-pressed="true">Collide with Google 3D mesh</button></div>
+      <div class="row"><button class="opt" id="detail" aria-pressed="false">Tile detail: normal</button><button class="opt" id="colMode" aria-pressed="true">Collide with Google 3D mesh</button><button class="opt" id="flatMode" aria-pressed="false">Flatten streets (experimental)</button></div>
       <p class="note">The key is saved only in this browser on this device. Each Google session counts as one billable request (1,000 free per month). Switching visuals reloads the page.</p>
     </div>
     <div class="go" id="goText">Press Play, or any controller button</div>
@@ -203,7 +203,7 @@ import * as THREE from 'three';
 (async function(){
 'use strict';
 const $=id=>document.getElementById(id);
-let gTiles=null,gAuth=null,gWrap=null,gStart=0,gDiag=false;
+let gTiles=null,gAuth=null,gWrap=null,gStart=0,gDiag=false,gFlat=null,bvhReset=0;
 let tilesAligned=false,autoDH=0,bvhT=0,seatT=0,seatStart=0,tileColFailed=false;
 const tileCol=()=>!!(gTiles&&settings.tileCol&&tilesAligned&&!tileColFailed);
 function setStatus(t){const e=$('loadStat');if(e)e.textContent=t;}
@@ -216,7 +216,7 @@ const angDiff=(a,b)=>{let d=(a-b)%TAU;if(d>Math.PI)d-=TAU;if(d<-Math.PI)d+=TAU;r
 
 /* ---------- tuning ---------- */
 const T={G:28,RUN:16,JUMP:13,AIRACC:10,AIRMAX:16,PUMP:13,MAXV:78,WALL_UP:13,WALL_SIDE:9,ZIP:60,LUNGE:42};
-const settings={autoChain:true,invert:false,sens:1,sky:true,google:false,gkey:'',tilesYaw:180,tilesDH:0,tileDetail:'normal',showCol:false,tileCol:true,place:null};
+const settings={autoChain:true,invert:false,sens:1,sky:true,google:false,gkey:'',tilesYaw:180,tilesDH:0,tileDetail:'normal',showCol:false,tileCol:true,flatten:false,place:null};
 try{Object.assign(settings,JSON.parse(localStorage.getItem('super-traverse-settings')||'{}'));}catch(e){}
 function saveSettings(){try{localStorage.setItem('super-traverse-settings',JSON.stringify(settings));}catch(e){}}
 
@@ -556,7 +556,7 @@ function updateCars(dt){
 }
 
 /* ---------- spatial helpers ---------- */
-function groundAt(x,z,maxY){if(tileCol()){const th=heightAt(x,z),h=castDown(x,maxY+0.3,z,maxY+0.3-th+40);return h&&h.ny>0.3?h.y:th;}
+function groundAt(x,z,maxY){if(tileCol()){const th=heightAt(x,z),h=castDown(x,maxY+0.3,z,maxY+0.3-th+120);return h&&h.ny>0.3?h.y:th;}
  let g=heightAt(x,z);query(x,z,x,z,QB);for(const b of QB){if(b.y1>maxY+0.01||b.ytop<=g||!pip(b,x,z))continue;let t=b.y1;if(b.rh>0){closestEdge(b,x,z);t=topAt(b,true,CE.d);}if(t<=maxY+0.01&&t>g)g=t;}return g;}
 function insideAny(q,pad){if(q.y<heightAt(q.x,q.z)+0.3)return true;query(q.x-pad,q.z-pad,q.x+pad,q.z+pad,QB);for(const b of QB){if(q.y<b.y0-pad||q.y>b.ytop+pad)continue;if(pip(b,q.x,q.z))return true;if(closestEdge(b,q.x,q.z)&&CE.d<pad)return true;}return false;}
 function nameAt(x,z,y){query(x,z,x,z,QB);let best=null;for(const b of QB){if(b.name&&pip(b,x,z)&&y>=b.y0-1&&y<=b.ytop+4&&(!best||b.y1>best.y1))best=b;}return best?best.name:'';}
@@ -1021,7 +1021,7 @@ function updateCamera(rdt,inp){
  const target=new V3(P.p.x,P.p.y+1.55,P.p.z);
  const f=new V3(Math.sin(camYaw)*Math.cos(camPitch),-Math.sin(camPitch),Math.cos(camYaw)*Math.cos(camPitch));
  let ok=1;if(tileCol()){const h=castT(target.x,target.y,target.z,-f.x,-f.y,-f.z,dist);if(h)ok=Math.max(0,(h.d-0.45)/dist);}else for(let i=1;i<=10;i++){if(insideAny(tA.copy(target).addScaledVector(f,-dist*i/10),0.35)){ok=(i-1)/10;break;}}
- const want=target.clone().addScaledVector(f,-dist*Math.max(0.12,ok));{const gy=heightAt(want.x,want.z)+0.5;if(want.y<gy)want.y=gy;}
+ const want=target.clone().addScaledVector(f,-dist*Math.max(0.12,ok));{const gy=tileCol()?heightAt(want.x,want.z)-60:heightAt(want.x,want.z)+0.5;if(want.y<gy)want.y=gy;}
  camPos.lerp(want,damp(ok<1?30:13,rdt));
  shakeAmp=Math.max(0,shakeAmp-rdt*1.8);const sh=shakeAmp*shakeAmp;
  camera.position.copy(camPos).add(tA.set((Math.random()-0.5)*sh,(Math.random()-0.5)*sh,(Math.random()-0.5)*sh));
@@ -1070,11 +1070,12 @@ function begin(){
 }
 $('play').addEventListener('click',()=>begin());
 $('mapBtn').addEventListener('click',()=>{$('mapPanel').hidden=!$('mapPanel').hidden;});
-function syncMap(){$('modeOSM').setAttribute('aria-pressed',!settings.google);$('modeG').setAttribute('aria-pressed',!!settings.google);$('colMode').setAttribute('aria-pressed',!!settings.tileCol);$('detail').textContent='Tile detail: '+settings.tileDetail;$('detail').setAttribute('aria-pressed',settings.tileDetail==='high');$('gkey').value=settings.gkey||'';}
+function syncMap(){$('modeOSM').setAttribute('aria-pressed',!settings.google);$('modeG').setAttribute('aria-pressed',!!settings.google);$('colMode').setAttribute('aria-pressed',!!settings.tileCol);$('flatMode').setAttribute('aria-pressed',!!settings.flatten);$('detail').textContent='Tile detail: '+settings.tileDetail;$('detail').setAttribute('aria-pressed',settings.tileDetail==='high');$('gkey').value=settings.gkey||'';}
 syncMap();
 $('modeOSM').addEventListener('click',()=>{if(!settings.google)return;settings.google=false;saveSettings();location.reload();});
 $('modeG').addEventListener('click',()=>{settings.gkey=$('gkey').value.trim()||settings.gkey;if(!settings.gkey){$('gkey').focus();setStatus('Paste your key first, then choose Google 3D tiles.');return;}settings.google=true;saveSettings();location.reload();});
 $('gsave').addEventListener('click',()=>{settings.gkey=$('gkey').value.trim();saveSettings();setStatus(settings.gkey?'Key saved on this device.':'Key cleared.');});
+$('flatMode').addEventListener('click',()=>{settings.flatten=!settings.flatten;saveSettings();$('flatMode').setAttribute('aria-pressed',settings.flatten);if(gTiles)location.reload();});
 $('colMode').addEventListener('click',()=>{settings.tileCol=!settings.tileCol;saveSettings();$('colMode').setAttribute('aria-pressed',settings.tileCol);if(gTiles)location.reload();});
 $('detail').addEventListener('click',()=>{settings.tileDetail=settings.tileDetail==='high'?'normal':'high';saveSettings();syncMap();if(gTiles)gTiles.errorTarget=settings.tileDetail==='high'?12:20;});
 function syncAlign(){$('alignStat').textContent=`offset ${settings.tilesDH>0?'+':''}${settings.tilesDH} m · rotation ${settings.tilesYaw}°`;$('colBtn').setAttribute('aria-pressed',settings.showCol);}
@@ -1119,6 +1120,7 @@ async function startGoogle(){
   tiles.registerPlugin(new TileCompressionPlugin());
   tiles.registerPlugin(new ReorientationPlugin({lat:CITY.lat0*Math.PI/180,lon:CITY.lon0*Math.PI/180,height:refElev+(IS_SLC?GEOID_N:0),up:'+y',recenter:true}));
   tiles.errorTarget=settings.tileDetail==='high'?12:20;
+  if(settings.flatten){try{const {TileFlatteningPlugin}=await import('3d-tiles-renderer/src/plugins/three/TileFlatteningPlugin.js');gFlat=new TileFlatteningPlugin();tiles.registerPlugin(gFlat);}catch(e){console.warn('flattening unavailable',e);gFlat=null;}}
   tiles.setCamera(camera);tiles.setResolutionFromRenderer(camera,renderer);
   gWrap=new THREE.Group();gWrap.add(tiles.group);scene.add(gWrap);applyTilesTransform();
   gTiles=tiles;gStart=performance.now();
@@ -1140,6 +1142,7 @@ let gAttrT=0;
 function updateGoogle(rdt){
  if(!gTiles)return;
  camera.updateMatrixWorld();gTiles.setResolutionFromRenderer(camera,renderer);gTiles.update();
+ if(bvhReset>0&&--bvhReset===0)gTiles.group.traverse(o=>{if(o.isMesh&&o.geometry&&o.geometry.boundsTree){try{o.geometry.disposeBoundsTree();}catch(e){o.geometry.boundsTree=null;}}});
  if(settings.tileCol&&!tileColFailed){if(THREE.BufferGeometry.prototype.computeBoundsTree)buildBVHs();seatT-=rdt;if(seatT<=0){seatT=0.5;alignAndSeat();}}
  if(!gDiag&&performance.now()-gStart>12000&&gTiles.visibleTiles&&gTiles.visibleTiles.size===0)diagnoseGoogle();
  gAttrT-=rdt;if(gAttrT<=0){gAttrT=1;try{const a=[];gAuth.getAttributions(a);const s=a.filter(x=>x.type==='string').map(x=>x.value).join('; ');$('gattribTxt').textContent=s?' · '+s:'';}catch(_){}}
@@ -1157,6 +1160,25 @@ function castT(ox,oy,oz,dx,dy,dz,far){
 const castDown=(x,y,z,far)=>castT(x,y,z,0,-1,0,far);
 function buildBVHs(){let n=0;gTiles.group.traverse(o=>{if(n>=3||!o.isMesh||!o.geometry||o.geometry.boundsTree||o.geometry.__bvhFail)return;
  try{o.geometry.computeBoundsTree();}catch(e){o.geometry.__bvhFail=true;}n++;});}
+// Street flattening: road ribbons at street level press down cars, poles and clutter in the
+// photogrammetry so streets read (and play) as clean surfaces. Experimental, off by default.
+function setupFlatten(){
+ if(!gFlat||!gTiles)return;
+ const pos=[],SKIP=/footway|path|cycleway|pedestrian|steps|track|bridleway|corridor/;
+ for(const r of CITY.roads){if(SKIP.test(r.c))continue;const hw=r.w*0.42,p=r.p;
+  for(let i=0;i<p.length-1;i++){const ax=p[i][0],az=p[i][1],bx=p[i+1][0],bz=p[i+1][1],L=Math.hypot(bx-ax,bz-az);if(L<0.5)continue;
+   const ux=(bx-ax)/L,uz=(bz-az)/L,nx=-uz*hw,nz=ux*hw,steps=Math.max(1,Math.ceil(L/8));
+   for(let k=0;k<steps;k++){const t0=k/steps,t1=(k+1)/steps,x0=ax+(bx-ax)*t0,z0=az+(bz-az)*t0,x1=ax+(bx-ax)*t1,z1=az+(bz-az)*t1;
+    const A=[x0+nx,heightAt(x0+nx,z0+nz),z0+nz],B=[x0-nx,heightAt(x0-nx,z0-nz),z0-nz],C=[x1-nx,heightAt(x1-nx,z1-nz),z1-nz],D=[x1+nx,heightAt(x1+nx,z1+nz),z1+nz];
+    pos.push(...A,...B,...C,...A,...C,...D);}}}
+ if(!pos.length)return;
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+ const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial());
+ // the plugin works in the tile set's own frame, so express the ribbons and "up" in that frame
+ gWrap.updateMatrixWorld(true);const inv=gTiles.group.matrixWorld.clone().invert();inv.decompose(m.position,m.quaternion,m.scale);
+ const up=new THREE.Vector3(0,1,0).transformDirection(inv);
+ try{gFlat.clearShapes();gFlat.addShape(m,up,4.5);bvhReset=3;toast('Streets flattened');}catch(e){console.warn('flatten failed',e);}
+}
 function alignAndSeat(){
  const now=performance.now();if(!seatStart)seatStart=now;
  if(!tilesAligned){
@@ -1165,8 +1187,8 @@ function alignAndSeat(){
   for(const r of CITY.roads){if(diffs.length>=9||tries>60)break;for(const q of r.p){if(Math.hypot(q[0]-start.x,q[1]-start.z)>260)continue;
    query(q[0],q[1],q[0],q[1],QB);if(QB.some(b=>pip(b,q[0],q[1])))continue;tries++;
    const th=heightAt(q[0],q[1]),h=castDown(q[0],th+250,q[1],500);if(h&&h.ny>0.85)diffs.push(h.y-th);break;}}
-  if(diffs.length>=5){diffs.sort((a,b)=>a-b);const m=diffs[diffs.length>>1];if(Math.abs(m)<80){autoDH-=m;applyTilesTransform();}tilesAligned=true;gWrap.updateMatrixWorld(true);}
-  else if(now-seatStart>30000){tilesAligned=true;}
+  if(diffs.length>=5){diffs.sort((a,b)=>a-b);const m=diffs[diffs.length>>1];if(Math.abs(m)<80){autoDH-=m;applyTilesTransform();}tilesAligned=true;gWrap.updateMatrixWorld(true);setupFlatten();}
+  else if(now-seatStart>30000){tilesAligned=true;setupFlatten();}
   return;
  }
  if(!P.seated){
@@ -1220,7 +1242,7 @@ function tileCollide(p,v,inp,wish,dt){
  // ground: median of five rays, then eased so tile detail changes and bumps don't jitter the hero
  const gy=groundSample(p.x,p.y+1.0,p.z,1.0+Math.max(0,-v.y)*dt*1.6+0.3);
  if(gy!==null){if(p.y<=gy+0.05||(wasG&&v.y<=0.5&&p.y-gy<0.35)){const dd=gy-p.y;p.y=(wasG&&Math.abs(dd)<0.35)?p.y+dd*Math.min(1,dt*22):gy;if(p.y<gy-0.12)p.y=gy-0.12;if(v.y<0)v.y=0;P.grounded=true;}}
- else{const th=heightAt(p.x,p.z)-2;if(p.y<=th){p.y=th;if(v.y<0)v.y=0;P.grounded=true;}}
+ else{const th=heightAt(p.x,p.z)-2;if(p.y<=th){const deep=castDown(p.x,p.y+1.0,p.z,120);if(!deep||deep.ny<0.45){p.y=th;if(v.y<0)v.y=0;P.grounded=true;}}}
  if(P.state==='wall'){
   const n=P.wallN,h=castT(p.x+n.x*0.6,p.y+1.0,p.z+n.z*0.6,-n.x,0,-n.z,1.7);
   if(h&&Math.abs(h.ny)<0.7){const cn=cleanWallNormal(h,p.x,p.y+1.0,p.z);const dot=cn.x*n.x+cn.z*n.z;
