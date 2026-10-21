@@ -36,6 +36,12 @@ body.prestart .hudel,body.prestart #pauseBtn,body.prestart #combo,body.prestart 
 .ovl{align-items:flex-start!important}.ovl>.card{margin:auto}
 #goText{font-size:16px}
 input{-webkit-user-select:text;user-select:text}
+#q{flex:1;min-width:0;font:600 13px var(--mono);padding:10px 12px;border-radius:8px;border:1px solid rgba(243,239,232,.3);background:rgba(12,13,30,.6);color:var(--paper)}
+.card.wide{max-width:760px}
+#picker{z-index:12;background:rgba(14,16,34,.96)}
+#pmap{position:relative;height:min(50vh,460px);border-radius:10px;overflow:hidden;border:1px solid rgba(243,239,232,.2);background:#20223a}
+.pmapMsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:12px}
+#qRes:empty{display:none}
 #gkey{flex:1;min-width:0;font:600 13px var(--mono);padding:10px 12px;border-radius:8px;border:1px solid rgba(243,239,232,.3);background:rgba(12,13,30,.6);color:var(--paper)}
 .mapPanel{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid rgba(243,239,232,.18);border-radius:10px;background:rgba(12,13,30,.5)}
 .ovl button.bigplay{font:800 20px var(--display);letter-spacing:.08em;text-transform:uppercase;padding:12px 30px}
@@ -119,11 +125,11 @@ input{-webkit-user-select:text;user-select:text}
 
 <div class="ovl" id="start">
   <div class="card">
-    <p class="sub">Salt Lake City · real map data</p>
+    <p class="sub" id="subPlace">Loading…</p>
     <h1 class="title">Super<br>Traverse</h1>
-    <p class="note">Downtown Salt Lake City built from OpenStreetMap, set on real terrain elevation: about 1,700 building footprints with real heights and roof shapes, every street, park and street tree. Switch on Google 3D tiles in Map settings for photoreal visuals. You start on top of the tallest tower. Clear four rooftop crews marked by amber beacons. Hold swing and the hero chains webs on his own; let go to fling.</p>
+    <p class="note">Real cities built from OpenStreetMap on real terrain: building footprints with heights and roof shapes, streets, parks and trees. Choose any place on Earth, and switch on Google 3D tiles in Map settings for photoreal visuals you can collide with. Clear the rooftop crews marked by amber beacons. Hold swing and the hero chains webs on his own; let go to fling.</p>
     <div class="ctl" id="startCtl"></div>
-    <div class="row"><button class="opt primary bigplay" id="play" disabled>Play</button><button class="opt" id="mapBtn">Map settings</button></div>
+    <div class="row"><button class="opt primary bigplay" id="play" disabled>Play</button><button class="opt" id="placeBtn">Choose place</button><button class="opt" id="mapBtn">Map settings</button></div>
     <div class="padStat" id="loadStat">Loading…</div>
     <div class="padStat warn" id="gmsg" hidden></div>
     <div class="mapPanel" id="mapPanel" hidden>
@@ -131,11 +137,26 @@ input{-webkit-user-select:text;user-select:text}
       <div class="row"><button class="opt" id="modeOSM" aria-pressed="true">OpenStreetMap (free)</button><button class="opt" id="modeG" aria-pressed="false">Google 3D tiles</button></div>
       <label class="lbl" for="gkey">Google Map Tiles API key</label>
       <div class="row"><input id="gkey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…"><button class="opt" id="gsave">Save key</button></div>
-      <div class="row"><button class="opt" id="detail" aria-pressed="false">Tile detail: normal</button></div>
+      <div class="row"><button class="opt" id="detail" aria-pressed="false">Tile detail: normal</button><button class="opt" id="colMode" aria-pressed="true">Collide with Google 3D mesh</button></div>
       <p class="note">The key is saved only in this browser on this device. Each Google session counts as one billable request (1,000 free per month). Switching visuals reloads the page.</p>
     </div>
     <div class="go" id="goText">Press Play, or any controller button</div>
     <div class="padStat" id="padStat">Controller not detected yet. Press any button on it to wake it up.</div>
+  </div>
+</div>
+
+<div class="ovl" id="picker" hidden>
+  <div class="card wide">
+    <h2>Choose a place</h2>
+    <div class="row"><input id="q" type="search" placeholder="Search a city, landmark or address" autocomplete="off"><button class="opt" id="qGo">Search</button><button class="opt" id="qMe">Use my location</button></div>
+    <div class="row" id="qRes"></div>
+    <div id="pmap"><div class="pmapMsg" id="pmapMsg">Loading map…</div></div>
+    <div class="row" id="sizes"><span class="lbl">Area</span>
+      <button class="opt" data-size="1000">1 km</button><button class="opt" data-size="1600">1.6 km</button><button class="opt" data-size="2400">2.4 km</button></div>
+    <div class="lbl">Try a skyline</div>
+    <div class="row" id="presets"></div>
+    <div class="row"><button class="opt primary" id="buildHere">Build here</button><button class="opt" id="pCancel">Cancel</button><button class="opt" id="pSLC">Back to Salt Lake City</button></div>
+    <p class="note">Drag the map so the square covers the area you want. Building data comes from OpenStreetMap through the free Overpass service, so a dense downtown can take up to a minute to download the first time. After that it is saved on this device. Bigger areas load slower on a phone.</p>
   </div>
 </div>
 
@@ -169,7 +190,8 @@ input{-webkit-user-select:text;user-select:text}
  "three/examples/jsm/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
  "3d-tiles-renderer":"https://cdn.jsdelivr.net/npm/3d-tiles-renderer@0.4.10/src/index.js",
- "3d-tiles-renderer/":"https://cdn.jsdelivr.net/npm/3d-tiles-renderer@0.4.10/"
+ "3d-tiles-renderer/":"https://cdn.jsdelivr.net/npm/3d-tiles-renderer@0.4.10/",
+ "three-mesh-bvh":"https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.8.3/src/index.js"
 }}
 </script>
 <script type="module">
@@ -177,6 +199,9 @@ import * as THREE from 'three';
 (async function(){
 'use strict';
 const $=id=>document.getElementById(id);
+let gTiles=null,gAuth=null,gWrap=null,gStart=0,gDiag=false;
+let tilesAligned=false,autoDH=0,bvhT=0,seatT=0,seatStart=0,tileColFailed=false;
+const tileCol=()=>!!(gTiles&&settings.tileCol&&tilesAligned&&!tileColFailed);
 function setStatus(t){const e=$('loadStat');if(e)e.textContent=t;}
 function showMsg(t,m){const e=$('gmsg');if(e){e.textContent=t+': '+m;e.hidden=false;}}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -187,7 +212,7 @@ const angDiff=(a,b)=>{let d=(a-b)%TAU;if(d>Math.PI)d-=TAU;if(d<-Math.PI)d+=TAU;r
 
 /* ---------- tuning ---------- */
 const T={G:28,RUN:16,JUMP:13,AIRACC:10,AIRMAX:16,PUMP:13,MAXV:78,WALL_UP:13,WALL_SIDE:9,ZIP:60,LUNGE:42};
-const settings={autoChain:true,invert:false,sens:1,sky:true,google:false,gkey:'',tilesYaw:180,tilesDH:0,tileDetail:'normal',showCol:false};
+const settings={autoChain:true,invert:false,sens:1,sky:true,google:false,gkey:'',tilesYaw:180,tilesDH:0,tileDetail:'normal',showCol:false,tileCol:true,place:null};
 try{Object.assign(settings,JSON.parse(localStorage.getItem('super-traverse-settings')||'{}'));}catch(e){}
 function saveSettings(){try{localStorage.setItem('super-traverse-settings',JSON.stringify(settings));}catch(e){}}
 
@@ -228,7 +253,133 @@ function windowTex(){
 const [wallTex,litTex]=windowTex();
 
 /* ---------- terrain (AWS Terrain Tiles, Terrarium encoding) ---------- */
-const CITY=JSON.parse(document.getElementById('cityData').textContent);
+/* ---------- place picker (Leaflet + Nominatim) ---------- */
+const PRESETS=[['Salt Lake City',40.76615,-111.89325,null],['Manhattan, Midtown',40.7549,-73.9840],['Chicago Loop',41.8810,-87.6298],['Seattle',47.6062,-122.3348],['San Francisco',37.7921,-122.3984],['London, The City',51.5136,-0.0890],['Paris, La Défense',48.8924,2.2381],['Hong Kong, Central',22.2810,114.1588],['Tokyo, Shinjuku',35.6909,139.6950],['Dubai Marina',25.0805,55.1403]];
+let pMap=null,pRect=null,pSize=(settings.place&&settings.place.size)||1600,pName=null;
+function loadLeaflet(){if(window.L)return Promise.resolve();return new Promise((res,rej)=>{const l=document.createElement('link');l.rel='stylesheet';l.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(l);
+ const s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.onload=res;s.onerror=()=>rej(new Error('map library failed to load'));document.head.appendChild(s);});}
+function sqBounds(c){const h=pSize/2,dl=h/110540,dn=h/(111320*Math.cos(c.lat*Math.PI/180));return[[c.lat-dl,c.lng-dn],[c.lat+dl,c.lng+dn]];}
+function syncSizes(){for(const b of document.querySelectorAll('#sizes button'))b.setAttribute('aria-pressed',+b.dataset.size===pSize);if(pMap&&pRect)pRect.setBounds(sqBounds(pMap.getCenter()));}
+async function openPicker(){
+ $('picker').hidden=false;syncSizes();
+ const pr=$('presets');if(!pr.children.length)for(const p of PRESETS){const b=document.createElement('button');b.className='opt';b.textContent=p[0];b.addEventListener('click',()=>{pName=p[0];if(pMap)pMap.setView([p[1],p[2]],15);else{settings.place=p[3]===null?null:{name:p[0],lat:p[1],lon:p[2],size:pSize};settings.tilesDH=0;saveSettings();location.reload();}});pr.appendChild(b);}
+ try{await loadLeaflet();}catch(e){$('pmapMsg').textContent='The map could not load. Check your connection, or pick a preset.';return;}
+ $('pmapMsg').hidden=true;
+ const c=settings.place?[settings.place.lat,settings.place.lon]:[40.76615,-111.89325];
+ if(!pMap){pMap=L.map('pmap',{zoomControl:true,attributionControl:true}).setView(c,15);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(pMap);
+  pRect=L.rectangle(sqBounds(pMap.getCenter()),{color:'#ffc96b',weight:2,fillOpacity:0.08,interactive:false}).addTo(pMap);
+  pMap.on('move',()=>pRect.setBounds(sqBounds(pMap.getCenter())));pMap.on('dragstart',()=>{pName=null;});}
+ setTimeout(()=>pMap.invalidateSize(),60);
+}
+async function geocode(){
+ const q=$('q').value.trim();if(!q)return;const box=$('qRes');box.textContent='Searching…';
+ try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q='+encodeURIComponent(q),{headers:{'Accept-Language':navigator.language||'en'}});const j=await r.json();box.textContent='';
+  if(!j.length){box.textContent='No matches. Try a city name.';return;}
+  for(const it of j){const b=document.createElement('button');b.className='opt';const nm=it.display_name.split(',').slice(0,2).join(',');b.textContent=nm;b.addEventListener('click',()=>{pName=nm;pMap&&pMap.setView([+it.lat,+it.lon],16);box.textContent='';});box.appendChild(b);}
+ }catch(e){box.textContent='Search is unavailable right now. Drag the map instead.';}
+}
+async function buildHere(){
+ if(!pMap)return;const c=pMap.getCenter();let name=pName;
+ if(!name){try{const ac=new AbortController();setTimeout(()=>ac.abort(),3500);const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&lat=${c.lat}&lon=${c.lng}`,{signal:ac.signal});const j=await r.json();const a=j.address||{};
+  name=[a.neighbourhood||a.suburb||a.quarter||a.city_district,a.city||a.town||a.village].filter(Boolean).join(', ')||(j.name||'');}catch(e){}}
+ if(!name)name=`Area at ${c.lat.toFixed(3)}, ${c.lng.toFixed(3)}`;
+ const preset=PRESETS.find(p=>p[0]===name&&p[3]===null);
+ settings.place=preset?null:{name,lat:+c.lat.toFixed(5),lon:+c.lng.toFixed(5),size:pSize};settings.tilesDH=0;saveSettings();location.reload();
+}
+$('placeBtn').addEventListener('click',openPicker);
+$('pCancel').addEventListener('click',()=>{$('picker').hidden=true;});
+$('pSLC').addEventListener('click',()=>{settings.place=null;settings.tilesDH=0;saveSettings();location.reload();});
+$('buildHere').addEventListener('click',buildHere);
+$('qGo').addEventListener('click',geocode);
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter')geocode();});
+$('qMe').addEventListener('click',()=>{if(!navigator.geolocation){$('qRes').textContent='Location is not available in this browser.';return;}
+ navigator.geolocation.getCurrentPosition(p=>{pName=null;pMap&&pMap.setView([p.coords.latitude,p.coords.longitude],16);},()=>{$('qRes').textContent='Location permission was denied.';},{enableHighAccuracy:false,timeout:8000});});
+for(const b of document.querySelectorAll('#sizes button'))b.addEventListener('click',()=>{pSize=+b.dataset.size;syncSizes();});
+
+/* ---------- place selection & OpenStreetMap download ---------- */
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('super-traverse',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function idbGet(k){try{const db=await idb();return await new Promise(res=>{const t=db.transaction('kv').objectStore('kv').get(k);t.onsuccess=()=>res(t.result||null);t.onerror=()=>res(null);});}catch(e){return null;}}
+async function idbSet(k,v){try{const db=await idb();await new Promise(res=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=res;t.onerror=res;});}catch(e){}}
+const placeKey=pl=>`city:${pl.lat.toFixed(4)},${pl.lon.toFixed(4)},${pl.size}`;
+function osmNum(s){if(s==null)return null;s=String(s).trim().toLowerCase().replace(',','.');const m=s.match(/^([0-9.]+)\s*(m|ft|')?/);if(!m)return null;let v=parseFloat(m[1]);if(!isFinite(v))return null;if(m[2]==='ft'||m[2]==="'")v*=0.3048;return v;}
+function parseOSM(J,bb){
+ const lat0=bb.lat0,lon0=bb.lon0,kx=111320*Math.cos(lat0*Math.PI/180),kz=110540,P=(la,lo)=>[(lo-lon0)*kx,-(la-lat0)*kz],r1=v=>Math.round(v*10)/10;
+ const nodes=new Map(),trees=[],ways=new Map(),rels=[];
+ for(const e of J.elements){
+  if(e.type==='node'){const q=P(e.lat,e.lon);nodes.set(e.id,q);if(e.tags&&e.tags.natural==='tree'&&trees.length<9000)trees.push([r1(q[0]),r1(q[1])]);}
+  else if(e.type==='way'){const o=ways.get(e.id);if(!o||(!Object.keys(o.tags).length&&e.tags))ways.set(e.id,{nodes:e.nodes||[],tags:e.tags||{}});}
+  else if(e.type==='relation')rels.push(e);}
+ const DEF={house:7,detached:7,garage:3.5,garages:3.5,shed:3,roof:5,carport:3,residential:9,apartments:14,commercial:10,retail:7,church:14,cathedral:22,parking:12,office:16,hotel:20,industrial:9,warehouse:9,school:10};
+ const KIND={pyramidal:'p',cone:'p',hipped:'p',gabled:'p','side_half-hipped':'p','half-hipped':'p',gambrel:'p',mansard:'p',skillion:'p',dome:'d',onion:'d',round:'d'};
+ function height(t){let h=osmNum(t.height)??osmNum(t['building:height']);const lv=osmNum(t['building:levels']);if(h==null&&lv!=null)h=lv*3.6+(lv>2?1.5:0.6);
+  const bt=t.building||t['building:part']||'yes';if(h==null)h=DEF[bt]??9;let mh=osmNum(t.min_height);if(mh==null&&osmNum(t['building:min_level'])!=null)mh=osmNum(t['building:min_level'])*3.6;return[h,mh||0];}
+ function ring(refs){let pts=refs.map(r=>nodes.get(r)).filter(Boolean);if(pts.length>2&&pts[0][0]===pts[pts.length-1][0]&&pts[0][1]===pts[pts.length-1][1])pts=pts.slice(0,-1);
+  const out=[];for(const p of pts){if(!out.length||Math.hypot(p[0]-out[out.length-1][0],p[1]-out[out.length-1][1])>0.4)out.push(p);}
+  if(out.length>2&&Math.hypot(out[0][0]-out[out.length-1][0],out[0][1]-out[out.length-1][1])<0.4)out.pop();
+  let ch=true;while(ch&&out.length>3){ch=false;for(let i=0;i<out.length;i++){const a=out[(i-1+out.length)%out.length],b=out[i],c=out[(i+1)%out.length];const cr=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]),L=Math.hypot(c[0]-a[0],c[1]-a[1]);if(L>0&&Math.abs(cr)/L<0.25){out.splice(i,1);ch=true;break;}}}
+  if(out.length<3)return null;let area=0;for(let i=0;i<out.length;i++){const a=out[(i-1+out.length)%out.length],b=out[i];area+=a[0]*b[1]-b[0]*a[1];}area/=2;
+  if(Math.abs(area)<8)return null;if(area<0)out.reverse();return[out,Math.abs(area)];}
+ const blds=[],parts=[];
+ function add(refs,t,isPart){const r=ring(refs);if(!r)return;const[pts,area]=r;const[h,mh]=height(t);const shp=(t['roof:shape']||'flat').toLowerCase(),kind=KIND[shp]||'';
+  let rh=osmNum(t['roof:height']);if(rh==null&&osmNum(t['roof:levels'])!=null)rh=osmNum(t['roof:levels'])*2.6;
+  if(kind&&rh==null)rh=(shp==='pyramidal'||shp==='cone')?Math.max(2.5,(h-mh)*0.35):kind==='d'?Math.max(3,Math.sqrt(area)*0.4):3.5;
+  if(!kind)rh=0;rh=Math.min(rh||0,(h-mh)*0.85);if(shp==='skillion')rh=Math.min(rh,2);
+  (isPart?parts:blds).push({p:pts,h,m:mh,a:area,n:t.name||'',s:kind,rh});}
+ for(const[,w]of ways){const t=w.tags,r=w.nodes;if(r.length<4||r[0]!==r[r.length-1])continue;
+  if(t['building:part']&&t['building:part']!=='no')add(r,t,true);else if(t.building&&t.building!=='no')add(r,t,false);}
+ for(const rel of rels){const t=rel.tags||{};if(t.type!=='multipolygon'||!(t.building||t['building:part']))continue;
+  const outers=(rel.members||[]).filter(m=>m.type==='way'&&m.role==='outer'&&ways.has(m.ref)).map(m=>m.ref);const segs=outers.map(o=>ways.get(o).nodes.slice());
+  while(segs.length){let cur=segs.shift(),changed=true;while(cur[0]!==cur[cur.length-1]&&changed){changed=false;for(let i=0;i<segs.length;i++){const s=segs[i];
+    if(s[0]===cur[cur.length-1])cur=cur.concat(s.slice(1));else if(s[s.length-1]===cur[cur.length-1])cur=cur.concat(s.slice().reverse().slice(1));
+    else if(s[s.length-1]===cur[0])cur=s.concat(cur.slice(1));else if(s[0]===cur[0])cur=s.slice().reverse().concat(cur.slice(1));else continue;segs.splice(i,1);changed=true;break;}}
+   if(cur[0]===cur[cur.length-1]){const tt=Object.assign({},t);if(!tt.name)for(const o of outers){const n=ways.get(o).tags.name;if(n){tt.name=n;break;}}add(cur,tt,!!t['building:part']&&!t.building);}}}
+ const pipA=(x,z,pts)=>{let c=false;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const[xi,zi]=pts[i],[xj,zj]=pts[j];if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi)c=!c;}return c;};
+ const cen=pts=>[pts.reduce((s,p)=>s+p[0],0)/pts.length,pts.reduce((s,p)=>s+p[1],0)/pts.length];
+ const pc=parts.map(p=>cen(p.p)),fin=[];
+ for(const bd of blds){let any=false,maxh=0;for(let i=0;i<parts.length;i++){if(pipA(pc[i][0],pc[i][1],bd.p)){any=true;if(!parts[i].n)parts[i].n=bd.n;maxh=Math.max(maxh,parts[i].h);}}
+  if(any){if(bd.n&&maxh<bd.h-1)fin.push(bd);continue;}fin.push(bd);}
+ fin.push(...parts);
+ const W={motorway:16,trunk:14,primary:14,secondary:12,tertiary:10,residential:8,unclassified:7,service:4.5,living_street:6,pedestrian:6,footway:2.2,path:2,cycleway:2.2,motorway_link:8,primary_link:8,secondary_link:7,tertiary_link:7,trunk_link:8};
+ const roads=[],parks=[],water=[];
+ for(const[,w]of ways){const t=w.tags,hw=t.highway,refs=w.nodes;
+  if(W[hw]&&t.tunnel!=='yes'&&t.area!=='yes'&&!(hw==='footway'&&(t.footway==='sidewalk'||t.footway==='crossing'))){const pts=refs.map(r=>nodes.get(r)).filter(Boolean);
+   if(pts.length>1){let w2=W[hw];const lanes=osmNum(t.lanes);if(lanes&&!['footway','path','cycleway','service'].includes(hw))w2=Math.max(w2,lanes*3.4);roads.push({w:r1(w2),c:hw,p:pts.map(p=>[r1(p[0]),r1(p[1])])});}}
+  const closed=refs.length>3&&refs[0]===refs[refs.length-1];
+  if(closed&&(/^(park|garden|pitch)$/.test(t.leisure||'')||/^(grass|recreation_ground|cemetery|meadow)$/.test(t.landuse||''))){const r=ring(refs);if(r)parks.push(r[0].map(p=>[r1(p[0]),r1(p[1])]));}
+  if(closed&&(t.natural==='water'||t.water)){const r=ring(refs);if(r)water.push(r[0].map(p=>[r1(p[0]),r1(p[1])]));}}
+ const[xa,za]=P(bb.s,bb.w),[xb,zb]=P(bb.n,bb.e);
+ return{bounds:[Math.round(Math.min(xa,xb)),Math.round(Math.min(za,zb)),Math.round(Math.max(xa,xb)),Math.round(Math.max(za,zb))],lat0,lon0,kx,kz,
+  b:fin.map(bd=>[r1(bd.h),r1(bd.m),bd.n,bd.p.flatMap(p=>[r1(p[0]),r1(p[1])]),bd.s,r1(bd.rh)]),roads,parks,water,trees};
+}
+async function fetchCity(pl){
+ const h=pl.size/2,dlat=h/110540,dlon=h/(111320*Math.cos(pl.lat*Math.PI/180)),s=pl.lat-dlat,n=pl.lat+dlat,w=pl.lon-dlon,e=pl.lon+dlon,bb=`${s.toFixed(6)},${w.toFixed(6)},${n.toFixed(6)},${e.toFixed(6)}`;
+ const q=`[out:json][timeout:120][maxsize:536870912];(way["building"](${bb});way["building:part"](${bb});relation["building"](${bb});relation["building:part"](${bb});way["highway"](${bb});way["leisure"~"^(park|garden|pitch)$"](${bb});way["landuse"~"^(grass|recreation_ground|cemetery|meadow)$"](${bb});way["natural"="water"](${bb});node["natural"="tree"](${bb}););out body;>;out skel qt;`;
+ const eps=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+ let last='';
+ for(const ep of eps){
+  try{setStatus(`Downloading map data for ${pl.name} from ${new URL(ep).host}… (dense downtowns can take a minute)`);
+   const ac=new AbortController(),to=setTimeout(()=>ac.abort(),150000);
+   const r=await fetch(ep,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ac.signal});clearTimeout(to);
+   if(!r.ok){last=`${new URL(ep).host} answered HTTP ${r.status}`;continue;}
+   setStatus('Processing map data…');const J=await r.json();
+   const c=parseOSM(J,{s,w,n,e,lat0:pl.lat,lon0:pl.lon});
+   if(!c.b.length)throw new Error('no buildings are mapped in this area');
+   return c;
+  }catch(err){last=err.name==='AbortError'?'the download timed out':String(err.message||err);if(/no buildings/.test(last))throw err;}
+ }
+ throw new Error(last||'every map server failed');
+}
+let CITY=null,PLACE=settings.place||null;
+if(PLACE){
+ CITY=await idbGet(placeKey(PLACE));
+ if(!CITY){try{CITY=await fetchCity(PLACE);await idbSet(placeKey(PLACE),CITY);}catch(err){showMsg('Could not build '+PLACE.name,String(err.message||err)+'. Showing Salt Lake City instead.');CITY=null;}}
+}
+const IS_SLC=!CITY;
+if(!CITY){CITY=JSON.parse(document.getElementById('cityData').textContent);PLACE=null;}
+const PLACE_NAME=PLACE?PLACE.name:'Salt Lake City';
+$('subPlace').textContent=PLACE_NAME+' · real map data';$('where').textContent=PLACE_NAME;
+
 const [BX0,BZ0,BX1,BZ1]=CITY.bounds;
 const TM=700,TSTEP=5,TX0=BX0-TM,TZ0=BZ0-TM,TX1=BX1+TM,TZ1=BZ1+TM,TNX=Math.round((TX1-TX0)/TSTEP)+1,TNZ=Math.round((TZ1-TZ0)/TSTEP)+1;
 const terrain=new Float32Array(TNX*TNZ);let refElev=1290,terrainOK=false;
@@ -373,7 +524,7 @@ const mountains=(function(){
   for(const v of[A,C,B,A,D,C]){pos.push(...v);const t=clamp(v[1]/240,0,1),c=base.clone().lerp(top,Math.min(1,t*1.6));if(v[1]>150)c.lerp(snow,clamp((v[1]-150)/80,0,0.8));col.push(c.r,c.g,c.b);}}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
  const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({vertexColors:true,fog:false,side:THREE.DoubleSide,depthWrite:false,depthTest:false}));m.renderOrder=-1;scene.add(m);return m;})();
-osmVisuals.push(mountains);
+mountains.visible=IS_SLC;osmVisuals.push(mountains);
 sky.renderOrder=-2;
 
 /* ---------- traffic ---------- */
@@ -400,7 +551,8 @@ function updateCars(dt){
 }
 
 /* ---------- spatial helpers ---------- */
-function groundAt(x,z,maxY){let g=heightAt(x,z);query(x,z,x,z,QB);for(const b of QB){if(b.y1>maxY+0.01||b.ytop<=g||!pip(b,x,z))continue;let t=b.y1;if(b.rh>0){closestEdge(b,x,z);t=topAt(b,true,CE.d);}if(t<=maxY+0.01&&t>g)g=t;}return g;}
+function groundAt(x,z,maxY){if(tileCol()){const th=heightAt(x,z),h=castDown(x,maxY+0.3,z,maxY+0.3-th+40);return h&&h.ny>0.3?h.y:th;}
+ let g=heightAt(x,z);query(x,z,x,z,QB);for(const b of QB){if(b.y1>maxY+0.01||b.ytop<=g||!pip(b,x,z))continue;let t=b.y1;if(b.rh>0){closestEdge(b,x,z);t=topAt(b,true,CE.d);}if(t<=maxY+0.01&&t>g)g=t;}return g;}
 function insideAny(q,pad){if(q.y<heightAt(q.x,q.z)+0.3)return true;query(q.x-pad,q.z-pad,q.x+pad,q.z+pad,QB);for(const b of QB){if(q.y<b.y0-pad||q.y>b.ytop+pad)continue;if(pip(b,q.x,q.z))return true;if(closestEdge(b,q.x,q.z)&&CE.d<pad)return true;}return false;}
 function nameAt(x,z,y){query(x,z,x,z,QB);let best=null;for(const b of QB){if(b.name&&pip(b,x,z)&&y>=b.y0-1&&y<=b.ytop+4&&(!best||b.y1>best.y1))best=b;}return best?best.name:'';}
 
@@ -444,12 +596,13 @@ const sites=[],enemies=[];
 let startName='';
 function roofPoint(b,margin){for(let k=0;k<60;k++){const x=lerp(b.minx,b.maxx,rng()),z=lerp(b.minz,b.maxz,rng());if(!pip(b,x,z))continue;closestEdge(b,x,z);if(CE.d<margin)continue;if(groundAt(x,z,b.y1+0.1)<b.y1-0.05)continue;return[x,z];}return[b.cx,b.cz];}
 {
- const flat=b=>!b.covered&&b.area>450&&b.rh===0;
- let sb=null;for(const b of buildings){if(!flat(b)||b.area<700)continue;if(!sb||b.y1>sb.y1)sb=b;}
- const sp=roofPoint(sb,3);start.set(sp[0],sb.y1,sp[1]);startName=sb.name;
+ const flat=b=>!b.covered&&b.area>60&&b.rh===0;
+ const SZ=Math.min(BX1-BX0,BZ1-BZ0);
+ let sb=null;for(const minA of[700,250,60]){for(const b of buildings){if(!flat(b)||b.area<minA)continue;if(!sb||b.y1-b.base>sb.y1-sb.base)sb=b;}if(sb)break;}
+ if(sb){const sp=roofPoint(sb,3);start.set(sp[0],sb.y1,sp[1]);startName=sb.name;}else{start.set(0,heightAt(0,0),0);startName='';}
  for(const[qx,qz]of[[1,1],[-1,1],[-1,-1],[1,-1]]){
-  const list=buildings.filter(b=>{if(!flat(b)||b===sb||b.y1<16||b.y1>75)return false;const dx=b.cx-start.x,dz=b.cz-start.z,d=Math.hypot(dx,dz);return Math.sign(dx)===qx&&Math.sign(dz)===qz&&d>140&&d<650&&b.cx>BX0+60&&b.cx<BX1-60&&b.cz>BZ0+60&&b.cz<BZ1-60;});
-  list.sort((a,b)=>Math.abs(Math.hypot(a.cx-start.x,a.cz-start.z)-330)-Math.abs(Math.hypot(b.cx-start.x,b.cz-start.z)-330));
+  let list=[];for(const lo of[14,6]){list=buildings.filter(b=>{const ht=b.y1-b.base;if(!flat(b)||b===sb||ht<lo||ht>90||b.area<(lo>10?450:150))return false;const dx=b.cx-start.x,dz=b.cz-start.z,d=Math.hypot(dx,dz);return Math.sign(dx)===qx&&Math.sign(dz)===qz&&d>SZ*0.09&&d<SZ*0.45&&b.cx>BX0+40&&b.cx<BX1-40&&b.cz>BZ0+40&&b.cz<BZ1-40;});if(list.length)break;}
+  list.sort((a,b)=>Math.abs(Math.hypot(a.cx-start.x,a.cz-start.z)-SZ*0.21)-Math.abs(Math.hypot(b.cx-start.x,b.cz-start.z)-SZ*0.21));
   const b=list[Math.floor(rng()*Math.min(4,list.length))];if(!b)continue;
   const c=roofPoint(b,4);const beam=new THREE.Mesh(new THREE.CylinderGeometry(1.4,1.4,700,12,1,true),new THREE.MeshBasicMaterial({color:0xffc96b,transparent:true,opacity:0.32,blending:THREE.AdditiveBlending,depthWrite:false,fog:false,side:THREE.DoubleSide}));
   beam.position.set(c[0],b.y1+350,c[1]);scene.add(beam);
@@ -554,14 +707,15 @@ function findAnchor(wish,camF){
  const right=new V3(-dir.z,0,dir.x),ahead=clamp(14+hs*0.45,16,34);
  const want=p.clone().addScaledVector(dir,ahead).addScaledVector(right,P.side*5);want.y=p.y+clamp(16+hs*0.1,14,24);
  let best=null,bs=1e9;
- query(p.x-80,p.z-80,p.x+80,p.z+80,QA);
+ if(tileCol())best=tileFindAnchor(dir,right,want);
+ else{query(p.x-80,p.z-80,p.x+80,p.z+80,QA);
  for(const b of QA){
   if(b.y1<p.y+4)continue;
   if(!closestEdge(b,want.x,want.z,p.x,p.z))continue;
   const c=new V3(CE.px+CE.nx*0.15,clamp(want.y,Math.max(b.y0,p.y+4),b.y1),CE.pz+CE.nz*0.15);
   const d=c.distanceTo(p);if(d<7||d>80)continue;
   const hx=c.x-p.x,hz=c.z-p.z,hl=Math.hypot(hx,hz)||1,fw=(hx*dir.x+hz*dir.z)/hl;if(fw<-0.15)continue;
-  const sc=c.distanceTo(want)+(1-fw)*12;if(sc<bs){bs=sc;best=c;}}
+  const sc=c.distanceTo(want)+(1-fw)*12;if(sc<bs){bs=sc;best=c;}}}
  P.skyAnchor=false;
  if(!best&&settings.sky){const g=groundAt(p.x,p.z,p.y+0.1),y=Math.min(Math.max(want.y,g+20),Math.max(g+22,95));if(y>p.y+6){best=want.clone();best.y=y;P.skyAnchor=true;}}
  return best;
@@ -581,6 +735,7 @@ function release(mode){
 }
 let zipCand=null;
 function findZip(){
+ if(tileCol())return tileFindZip();
  const cp=camera.position,dir=tA.set(0,0,-1).applyQuaternion(camera.quaternion),hd=Math.max(0.2,Math.hypot(dir.x,dir.z)),p=P.p;
  let best=null,ba=0.3;
  query(cp.x-120,cp.z-120,cp.x+120,cp.z+120,QC);
@@ -595,7 +750,7 @@ function findZip(){
  return best;
 }
 function tryZip(){
- if(!zipCand)return;P.zipTarget.copy(zipCand.end);const d=new V3(zipCand.end.x-P.p.x,0,zipCand.end.z-P.p.z);if(d.lengthSq()<0.01)d.copy(camFwd());P.zipDir.copy(d.normalize());
+ if(!zipCand)return;P.zipTarget.copy(zipCand.end);P.zipWallN=zipCand.wallN?zipCand.wallN.clone():null;const d=new V3(zipCand.end.x-P.p.x,0,zipCand.end.z-P.p.z);if(d.lengthSq()<0.01)d.copy(camFwd());P.zipDir.copy(d.normalize());
  P.zipT=0;setState('zip');sfx.thwip();rumble(0.08,0.15,0.4);
 }
 function pickTarget(range,wish,camF){
@@ -684,6 +839,7 @@ function updatePlayer(dt,inp){
   case 'zip':{P.zipT+=dt;const d=tA.subVectors(P.zipTarget,p),dist=d.length(),sp=Math.min(T.ZIP,14+P.zipT*140);
    if(dist<sp*dt+0.3||P.zipT>1.8){p.copy(P.zipTarget);
     if(P.jumpBuf>0){P.jumpBuf=0;v.copy(P.zipDir).multiplyScalar(26);v.y=20;sfx.launch();rumble(0.2,0.4,0.6);toast('Point launch');}
+    else if(P.zipWallN){v.set(0,0,0);P.wallN.copy(P.zipWallN);P.wallB=null;P.wallBoost=0;setState('wall');break;}
     else{v.copy(P.zipDir).multiplyScalar(7);v.y=6;}
     setState('air');}
    else v.copy(d).multiplyScalar(sp/dist);break;}
@@ -700,6 +856,10 @@ function updatePlayer(dt,inp){
  const s=v.length();if(s>T.MAXV)v.multiplyScalar(T.MAXV/s);
  if(P.state==='zip')return;
 
+ if(tileCol()){tileCollide(p,v,inp,wish,dt);
+  if(p.x<BX0-20){p.x=BX0-20;v.x=Math.max(0,v.x);}if(p.x>BX1+20){p.x=BX1+20;v.x=Math.min(0,v.x);}
+  if(p.z<BZ0-20){p.z=BZ0-20;v.z=Math.max(0,v.z);}if(p.z>BZ1+20){p.z=BZ1+20;v.z=Math.min(0,v.z);}
+ }else{
  // collisions against real footprints (extruded polygons, sloped roofs, terrain)
  const R=0.4,H=1.7;P.grounded=false;let wall=null;
  {const th=heightAt(p.x,p.z);if(p.y<=th){p.y=th;if(v.y<0)v.y=0;P.grounded=true;}}
@@ -730,6 +890,7 @@ function updatePlayer(dt,inp){
   const ok=P.state==='ground'?into>0.6:(P.state==='swing'||into>-0.3||wall[3]>4);
   if(ok&&b.y1-p.y>1.5){P.wallN.set(nx,0,nz);P.wallB=b;P.wallBoost=clamp(wall[3]*0.55+Math.max(0,v.y),0,24);v.set(0,0,0);setState('wall');sfx.land();rumble(0.05,0.3,0.1);}
  }
+ }
  if(P.state==='air'&&P.grounded&&v.y<=0){setState('ground');if(s>14){sfx.land();shakeAmp=Math.max(shakeAmp,clamp(s/120,0,0.35));}}
  if(P.state==='ground'&&!P.grounded)setState('air');
 
@@ -742,7 +903,9 @@ let attackCd=2,danger=false;
 function updateEnemies(dt){
  attackCd-=dt;danger=false;
  for(const e of enemies){
-  if(e.dead)continue;e.stateT+=dt;e.flash-=dt;e.stun-=dt;e.swingAnim-=dt;
+  if(e.dead)continue;if(gTiles&&settings.tileCol&&!tileColFailed&&!e.site.seated)continue;
+  if(e.state==='idle'&&Math.abs(e.pos.x-P.p.x)+Math.abs(e.pos.z-P.p.z)>260){e.mesh.position.copy(e.pos);continue;}
+  e.stateT+=dt;e.flash-=dt;e.stun-=dt;e.swingAnim-=dt;
   const gy=groundAt(e.pos.x,e.pos.z,e.pos.y+0.2);
   if(e.pos.y>gy+0.02||e.v.y>0){e.v.y-=T.G*dt;e.pos.addScaledVector(e.v,dt);const g2=groundAt(e.pos.x,e.pos.z,e.pos.y+0.6);
    if(e.pos.y<=g2){e.pos.y=g2;e.v.set(0,0,0);if(e.state==='ko'){e.state='down';e.stateT=0;}else if(e.state==='reel')e.state='fight';}}
@@ -852,7 +1015,7 @@ function updateCamera(rdt,inp){
  const dist=lerp(5.2,9.5,clamp((sp-8)/45,0,1))+(P.state==='wall'?1.6:0);
  const target=new V3(P.p.x,P.p.y+1.55,P.p.z);
  const f=new V3(Math.sin(camYaw)*Math.cos(camPitch),-Math.sin(camPitch),Math.cos(camYaw)*Math.cos(camPitch));
- let ok=1;for(let i=1;i<=10;i++){if(insideAny(tA.copy(target).addScaledVector(f,-dist*i/10),0.35)){ok=(i-1)/10;break;}}
+ let ok=1;if(tileCol()){const h=castT(target.x,target.y,target.z,-f.x,-f.y,-f.z,dist);if(h)ok=Math.max(0,(h.d-0.45)/dist);}else for(let i=1;i<=10;i++){if(insideAny(tA.copy(target).addScaledVector(f,-dist*i/10),0.35)){ok=(i-1)/10;break;}}
  const want=target.clone().addScaledVector(f,-dist*Math.max(0.12,ok));{const gy=heightAt(want.x,want.z)+0.5;if(want.y<gy)want.y=gy;}
  camPos.lerp(want,damp(ok<1?30:13,rdt));
  shakeAmp=Math.max(0,shakeAmp-rdt*1.8);const sh=shakeAmp*shakeAmp;
@@ -873,7 +1036,7 @@ function updateHUD(rdt){
  const mph=Math.round(P.v.length()*2.237);if(mph!==lastSpd){$('spd').textContent=mph;lastSpd=mph;}bestSpeed=Math.max(bestSpeed,mph);
  if(P.state!==lastSt){$('st').textContent=stateNames[P.state]||P.state;lastSt=P.state;}
  if(P.combo!==lastCombo){$('comboN').textContent=P.combo;$('combo').style.opacity=P.combo>1?1:0;lastCombo=P.combo;}
- whereT-=rdt;if(whereT<=0){whereT=0.4;const nm=nameAt(P.p.x,P.p.z,P.p.y)||(P.state==='wall'&&P.wallB&&P.wallB.name)||'';const t=nm||'Salt Lake City';if(t!==lastWhere){$('where').textContent=t;lastWhere=t;}}
+ whereT-=rdt;if(whereT<=0){whereT=0.4;const nm=nameAt(P.p.x,P.p.z,P.p.y)||(P.state==='wall'&&P.wallB&&P.wallB.name)||'';const t=nm||PLACE_NAME;if(t!==lastWhere){$('where').textContent=t;lastWhere=t;}}
  if(toastT>0){toastT-=rdt;if(toastT<=0)$('toast').style.opacity=0;}
  const open=sites.filter(s=>!s.cleared);let ns=null,nd=1e9;for(const s of open){const d=Math.hypot(s.x-P.p.x,s.z-P.p.z);if(d<nd){nd=d;ns=s;}}
  $('objLbl').textContent=`Rooftops ${sites.length-open.length}/${sites.length}`;
@@ -902,11 +1065,12 @@ function begin(){
 }
 $('play').addEventListener('click',()=>begin());
 $('mapBtn').addEventListener('click',()=>{$('mapPanel').hidden=!$('mapPanel').hidden;});
-function syncMap(){$('modeOSM').setAttribute('aria-pressed',!settings.google);$('modeG').setAttribute('aria-pressed',!!settings.google);$('detail').textContent='Tile detail: '+settings.tileDetail;$('detail').setAttribute('aria-pressed',settings.tileDetail==='high');$('gkey').value=settings.gkey||'';}
+function syncMap(){$('modeOSM').setAttribute('aria-pressed',!settings.google);$('modeG').setAttribute('aria-pressed',!!settings.google);$('colMode').setAttribute('aria-pressed',!!settings.tileCol);$('detail').textContent='Tile detail: '+settings.tileDetail;$('detail').setAttribute('aria-pressed',settings.tileDetail==='high');$('gkey').value=settings.gkey||'';}
 syncMap();
 $('modeOSM').addEventListener('click',()=>{if(!settings.google)return;settings.google=false;saveSettings();location.reload();});
 $('modeG').addEventListener('click',()=>{settings.gkey=$('gkey').value.trim()||settings.gkey;if(!settings.gkey){$('gkey').focus();setStatus('Paste your key first, then choose Google 3D tiles.');return;}settings.google=true;saveSettings();location.reload();});
 $('gsave').addEventListener('click',()=>{settings.gkey=$('gkey').value.trim();saveSettings();setStatus(settings.gkey?'Key saved on this device.':'Key cleared.');});
+$('colMode').addEventListener('click',()=>{settings.tileCol=!settings.tileCol;saveSettings();$('colMode').setAttribute('aria-pressed',settings.tileCol);if(gTiles)location.reload();});
 $('detail').addEventListener('click',()=>{settings.tileDetail=settings.tileDetail==='high'?'normal':'high';saveSettings();syncMap();if(gTiles)gTiles.errorTarget=settings.tileDetail==='high'?12:20;});
 function syncAlign(){$('alignStat').textContent=`offset ${settings.tilesDH>0?'+':''}${settings.tilesDH} m · rotation ${settings.tilesYaw}°`;$('colBtn').setAttribute('aria-pressed',settings.showCol);}
 function applyCol(){const cm=osmVisuals[0];if(!gTiles){cityMat.transparent=false;cityMat.opacity=1;cm.visible=true;return;}cm.visible=settings.showCol;cityMat.transparent=true;cityMat.opacity=0.35;cityMat.depthWrite=false;}
@@ -925,10 +1089,9 @@ $('optSky').addEventListener('click',()=>{settings.sky=!settings.sky;saveSetting
 $('optSens').addEventListener('click',()=>{settings.sens=settings.sens>1?1:1.45;saveSettings();syncOpts();});
 
 /* ---------- Google Photorealistic 3D Tiles (optional visual layer) ---------- */
-let gTiles=null,gAuth=null,gWrap=null,gStart=0,gDiag=false;
 const GEOID_N=-16.9; // WGS84 geoid separation near Salt Lake City (ellipsoid height = elevation + N)
-function setOsmVisible(on){for(const o of osmVisuals)o.visible=on;}
-function applyTilesTransform(){if(!gWrap)return;gWrap.rotation.y=settings.tilesYaw*Math.PI/180;gWrap.position.y=settings.tilesDH;}
+function setOsmVisible(on){for(const o of osmVisuals)o.visible=on&&(o!==mountains||IS_SLC);}
+function applyTilesTransform(){if(!gWrap)return;gWrap.rotation.y=settings.tilesYaw*Math.PI/180;gWrap.position.y=autoDH+settings.tilesDH;}
 async function startGoogle(){
  if(!settings.google)return;
  const key=(settings.gkey||'').trim();
@@ -942,13 +1105,14 @@ async function startGoogle(){
    import('3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js'),
    import('3d-tiles-renderer/src/plugins/three/TileCompressionPlugin.js'),
    import('three/examples/jsm/loaders/DRACOLoader.js')]);
+  try{const bvh=await import('three-mesh-bvh');THREE.BufferGeometry.prototype.computeBoundsTree=bvh.computeBoundsTree;THREE.BufferGeometry.prototype.disposeBoundsTree=bvh.disposeBoundsTree;THREE.Mesh.prototype.raycast=bvh.acceleratedRaycast;}catch(e){console.warn('BVH unavailable',e);tileColFailed=true;}
   const tiles=new TilesRenderer();
   gAuth=new GoogleCloudAuthPlugin({apiToken:key,autoRefreshToken:true});
   tiles.registerPlugin(gAuth);
   const draco=new DRACOLoader().setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
   tiles.registerPlugin(new GLTFExtensionsPlugin({dracoLoader:draco}));
   tiles.registerPlugin(new TileCompressionPlugin());
-  tiles.registerPlugin(new ReorientationPlugin({lat:CITY.lat0*Math.PI/180,lon:CITY.lon0*Math.PI/180,height:refElev+GEOID_N,up:'+y',recenter:true}));
+  tiles.registerPlugin(new ReorientationPlugin({lat:CITY.lat0*Math.PI/180,lon:CITY.lon0*Math.PI/180,height:refElev+(IS_SLC?GEOID_N:0),up:'+y',recenter:true}));
   tiles.errorTarget=settings.tileDetail==='high'?12:20;
   tiles.setCamera(camera);tiles.setResolutionFromRenderer(camera,renderer);
   gWrap=new THREE.Group();gWrap.add(tiles.group);scene.add(gWrap);applyTilesTransform();
@@ -971,8 +1135,93 @@ let gAttrT=0;
 function updateGoogle(rdt){
  if(!gTiles)return;
  camera.updateMatrixWorld();gTiles.setResolutionFromRenderer(camera,renderer);gTiles.update();
+ if(settings.tileCol&&!tileColFailed){if(THREE.BufferGeometry.prototype.computeBoundsTree)buildBVHs();seatT-=rdt;if(seatT<=0){seatT=0.5;alignAndSeat();}}
  if(!gDiag&&performance.now()-gStart>12000&&gTiles.visibleTiles&&gTiles.visibleTiles.size===0)diagnoseGoogle();
  gAttrT-=rdt;if(gAttrT<=0){gAttrT=1;try{const a=[];gAuth.getAttributions(a);const s=a.filter(x=>x.type==='string').map(x=>x.value).join('; ');$('gattribTxt').textContent=s?' · '+s:'';}catch(_){}}
+}
+
+/* ---------- collision against the live Google 3D tiles (raycasts, nothing stored) ---------- */
+const RC=new THREE.Raycaster();RC.firstHitOnly=true;const _ro=new V3(),_rd=new V3(),_rn=new V3();
+function castT(ox,oy,oz,dx,dy,dz,far){
+ if(!gTiles)return null;_ro.set(ox,oy,oz);_rd.set(dx,dy,dz).normalize();RC.set(_ro,_rd);RC.near=0;RC.far=far;
+ let hits;try{hits=RC.intersectObject(gTiles.group,true);}catch(e){return null;}
+ const h=hits&&hits[0];if(!h)return null;
+ if(h.face){_rn.copy(h.face.normal).transformDirection(h.object.matrixWorld);if(_rn.dot(_rd)>0)_rn.negate();}else _rn.copy(_rd).negate();
+ return{x:h.point.x,y:h.point.y,z:h.point.z,d:h.distance,nx:_rn.x,ny:_rn.y,nz:_rn.z};
+}
+const castDown=(x,y,z,far)=>castT(x,y,z,0,-1,0,far);
+function buildBVHs(){let n=0;gTiles.group.traverse(o=>{if(n>=3||!o.isMesh||!o.geometry||o.geometry.boundsTree||o.geometry.__bvhFail)return;
+ try{o.geometry.computeBoundsTree();}catch(e){o.geometry.__bvhFail=true;}n++;});}
+function alignAndSeat(){
+ const now=performance.now();if(!seatStart)seatStart=now;
+ if(!tilesAligned){
+  // compare street-level tile surface with the elevation model at open road points near the start
+  const diffs=[];let tries=0;
+  for(const r of CITY.roads){if(diffs.length>=9||tries>60)break;for(const q of r.p){if(Math.hypot(q[0]-start.x,q[1]-start.z)>260)continue;
+   query(q[0],q[1],q[0],q[1],QB);if(QB.some(b=>pip(b,q[0],q[1])))continue;tries++;
+   const th=heightAt(q[0],q[1]),h=castDown(q[0],th+250,q[1],500);if(h&&h.ny>0.85)diffs.push(h.y-th);break;}}
+  if(diffs.length>=5){diffs.sort((a,b)=>a-b);const m=diffs[diffs.length>>1];if(Math.abs(m)<80){autoDH-=m;applyTilesTransform();}tilesAligned=true;gWrap.updateMatrixWorld(true);}
+  else if(now-seatStart>30000){tilesAligned=true;}
+  return;
+ }
+ if(!P.seated){
+  const h=castDown(start.x,start.y+150,start.z,450);
+  if(h&&h.ny>0.5){start.y=h.y;P.p.set(start.x,h.y+0.05,start.z);P.v.set(0,0,0);P.seated=true;setState('ground');
+   if(settings.tileCol)toast('Colliding with Google 3D buildings');}
+  else if(now-seatStart>40000){tileColFailed=true;P.seated=true;showMsg('Google 3D collision','The tiles under the start roof never finished loading, so collision fell back to map shapes.');}
+ }
+ for(const s of sites){if(s.seated)continue;if(Math.hypot(s.x-P.p.x,s.z-P.p.z)>420)continue;
+  const h=castDown(s.x,s.y+120,s.z,320);if(h&&h.ny>0.6){const dy=h.y-s.y;s.y=h.y;s.beam.position.y+=dy;for(const e of s.enemies)e.pos.y+=dy;s.seated=true;}}
+}
+function tileFindAnchor(dir,right,want){
+ const p=P.p,dirs=[[0,0.8],[P.side*0.45,0.75],[P.side*0.25,1.1],[0,0.5],[P.side*0.7,0.5],[-P.side*0.3,0.9],[P.side*0.9,0.8]];
+ let best=null,bs=1e9;
+ for(const[s,u]of dirs){const dx=dir.x+right.x*s,dz=dir.z+right.z*s,L=Math.hypot(dx,dz)||1;
+  const h=castT(p.x,p.y+1.2,p.z,dx/L,u,dz/L,85);if(!h||h.y<p.y+4)continue;
+  const c=new V3(h.x+h.nx*0.1,h.y,h.z+h.nz*0.1),d=c.distanceTo(p);if(d<7)continue;
+  const hx=c.x-p.x,hz=c.z-p.z,hl=Math.hypot(hx,hz)||1,fw=(hx*dir.x+hz*dir.z)/hl;if(fw<-0.15)continue;
+  const sc=c.distanceTo(want)+(1-fw)*12;if(sc<bs){bs=sc;best=c;}}
+ return best;
+}
+function tileFindZip(){
+ const cp=camera.position,dir=tA.set(0,0,-1).applyQuaternion(camera.quaternion),p=P.p;
+ const h=castT(cp.x,cp.y,cp.z,dir.x,dir.y,dir.z,140);if(!h)return null;
+ const pt=new V3(h.x,h.y,h.z),dp=pt.distanceTo(p);if(dp<5||dp>110)return null;
+ if(h.ny>0.6)return{edge:pt,end:pt.clone().add(new V3(0,0.4,0)),wallN:null};
+ const L=Math.hypot(h.nx,h.nz)||1,n=new V3(h.nx/L,0,h.nz/L);
+ return{edge:pt,end:pt.clone().addScaledVector(n,0.55).add(new V3(0,-1,0)),wallN:n};
+}
+// returns true if it handled collision for this substep
+function tileCollide(p,v,inp,wish,dt){
+ const R=0.4;P.grounded=false;let wall=null;const hs=Math.hypot(v.x,v.z);
+ // ground
+ const g=castDown(p.x,p.y+1.0,p.z,1.0+Math.max(0,-v.y)*dt*1.6+0.3);
+ if(g&&g.ny>0.45){if(p.y<=g.y+0.05){p.y=g.y;if(v.y<0)v.y=0;P.grounded=true;}}
+ else{const th=heightAt(p.x,p.z)-2;if(p.y<=th){p.y=th;if(v.y<0)v.y=0;P.grounded=true;}}
+ if(P.state==='wall'){
+  const n=P.wallN,h=castT(p.x+n.x*0.6,p.y+1.0,p.z+n.z*0.6,-n.x,0,-n.z,1.7);
+  if(h&&Math.abs(h.ny)<0.7){const L=Math.hypot(h.nx,h.nz)||1;n.set(h.nx/L,0,h.nz/L);p.x=h.x+n.x*R;p.z=h.z+n.z*R;if(P.grounded&&inp.my<0)setState('ground');}
+  else{const tx=p.x-n.x*0.9,tz=p.z-n.z*0.9,top=castDown(tx,p.y+3.2,tz,4.5);
+   if(top&&top.ny>0.5){p.set(tx,top.y+0.05,tz);v.set(-n.x*4,4.5,-n.z*4);setState('air');sfx.land();}
+   else{// wrap around a convex corner in the direction of travel
+    const tx2=n.z,tz2=-n.x,lat=v.x*tx2+v.z*tz2,sg=lat>=0?1:-1,ox=p.x+tx2*sg*0.9-n.x*0.9,oz=p.z+tz2*sg*0.9-n.z*0.9;
+    const c=castT(ox,p.y+1.0,oz,-tx2*sg,0,-tz2*sg,1.6);
+    if(c&&Math.abs(c.ny)<0.7){const L=Math.hypot(c.nx,c.nz)||1;n.set(c.nx/L,0,c.nz/L);p.x=c.x+n.x*R;p.z=c.z+n.z*R;}
+    else{P.wallCd=0.3;v.set(n.x*3,Math.max(v.y,0),n.z*3);setState('air');}}}
+ }else{
+  if(hs>0.2){const ux=v.x/hs,uz=v.z/hs,px=p.x-v.x*dt,pz=p.z-v.z*dt;
+   const h=castT(px-ux*0.05,p.y+1.0,pz-uz*0.05,ux,0,uz,hs*dt+R+0.1);
+   if(h&&Math.abs(h.ny)<0.6){const L=Math.hypot(h.nx,h.nz)||1,nx=h.nx/L,nz=h.nz/L;
+    // small ledge or stair: step up instead of treating it as a wall
+    const st=castDown(h.x-nx*0.35,p.y+1.6,h.z-nz*0.35,1.6);
+    if(P.grounded&&st&&st.ny>0.6&&st.y-p.y<1.2){p.x=h.x-nx*0.35;p.z=h.z-nz*0.35;p.y=st.y;}
+    else{p.x=h.x+nx*R;p.z=h.z+nz*R;const vn=v.x*nx+v.z*nz;if(vn<0){v.x-=nx*vn;v.z-=nz*vn;}wall=[nx,nz,null,-vn];}}}
+  if(wall&&P.wallCd<=0&&(P.state==='air'||P.state==='swing'||P.state==='ground')){
+   const nx=wall[0],nz=wall[1],into=-(wish.x*nx+wish.z*nz),ok=P.state==='ground'?into>0.6:(P.state==='swing'||into>-0.3||wall[3]>4);
+   const above=castT(p.x+nx*0.6,p.y+2.6,p.z+nz*0.6,-nx,0,-nz,1.6);
+   if(ok&&above){P.wallN.set(nx,0,nz);P.wallB=null;P.wallBoost=clamp(wall[3]*0.55+Math.max(0,v.y),0,24);v.set(0,0,0);setState('wall');sfx.land();rumble(0.05,0.3,0.1);}
+  }
+ }
 }
 
 let ready=false;
@@ -997,7 +1246,7 @@ function frame(now){
  if(hitstop>0)hitstop-=rdt;else if(slowmo>0)slowmo-=rdt;
  const ts=hitstop>0?0.06:slowmo>0?0.35:1,dt=rdt*ts;clockT+=dt;
  const held={};for(const k in inp)held[k]=k.endsWith('P')?false:inp[k];
- updatePlayer(dt/2,inp);updatePlayer(dt/2,held);
+ if(gTiles&&settings.tileCol&&!tileColFailed&&!P.seated){if(!P.waitToast){P.waitToast=1;toast('Waiting for Google 3D tiles…');}}else{updatePlayer(dt/2,inp);updatePlayer(dt/2,held);}
  updateEnemies(dt);updateCamera(rdt,inp);updateHero(dt);updateCars(dt);updateHUD(rdt);
  if(AC&&windG){const sp=P.v.length(),tgt=Math.pow(clamp((sp-8)/60,0,1),1.5)*0.32;windG.gain.setTargetAtTime(tgt,AC.currentTime,0.08);windF.frequency.setTargetAtTime(280+sp*28,AC.currentTime,0.1);}
  updateGoogle(rdt);renderer.render(scene,camera);drawFX();
