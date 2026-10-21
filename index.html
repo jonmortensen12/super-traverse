@@ -140,10 +140,10 @@ input{-webkit-user-select:text;user-select:text}
       <div class="row"><button class="opt" id="modeOSM" aria-pressed="true">OpenStreetMap (free)</button><button class="opt" id="modeG" aria-pressed="false">Google 3D tiles</button></div>
       <label class="lbl" for="gkey">Google Map Tiles API key</label>
       <div class="row"><input id="gkey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…"><button class="opt" id="gsave">Save key</button></div>
-      <div class="row"><button class="opt" id="detail" aria-pressed="false">Tile detail: normal</button><button class="opt" id="colMode" aria-pressed="true">Collide with Google 3D mesh</button><button class="opt" id="flatMode" aria-pressed="false">Flatten streets</button><button class="opt" id="flatRoofs" aria-pressed="false">Flatten rooftops</button><button class="opt" id="fillBtn" aria-pressed="true">Fill tile gaps with map buildings</button></div>
+      <div class="row"><button class="opt" id="detail" aria-pressed="false">Tile detail: normal</button><button class="opt" id="colMode" aria-pressed="true">Collide with Google 3D mesh</button><button class="opt" id="flatMode" aria-pressed="false">Flatten streets</button><button class="opt" id="flatRoofs" aria-pressed="false">Flatten rooftops</button><button class="opt" id="fillBtn" aria-pressed="false">Fill tile gaps with map buildings</button></div>
       <p class="note">The key is saved only in this browser on this device. Each Google session counts as one billable request (1,000 free per month). Switching visuals or flattening reloads the page. Flattening is experimental: it presses cars and clutter onto clean streets, and rooftop gear onto clean roofs where the map height agrees with the real roof.</p>
     </div>
-    <div class="padStat" id="buildStamp"><!--BUILD-->Build 9 · Oct 21, 2026 · 3:10 PM PT<!--/BUILD--></div>
+    <div class="padStat" id="buildStamp"><!--BUILD-->Build 10 · Oct 21, 2026 · 3:30 PM PT<!--/BUILD--></div>
     <div class="go" id="goText">Press Play, or any controller button</div>
     <div class="padStat" id="padStat">Controller not detected yet. Press any button on it to wake it up.</div>
   </div>
@@ -217,7 +217,7 @@ const angDiff=(a,b)=>{let d=(a-b)%TAU;if(d>Math.PI)d-=TAU;if(d<-Math.PI)d+=TAU;r
 
 /* ---------- tuning ---------- */
 const T={G:28,RUN:16,JUMP:13,AIRACC:10,AIRMAX:16,PUMP:13,MAXV:78,WALL_UP:13,WALL_SIDE:9,ZIP:60,LUNGE:42};
-const settings={autoChain:true,invert:false,sens:1,sky:true,google:false,gkey:'',tilesYaw:180,tilesDH:0,tileDetail:'normal',showCol:false,tileCol:true,flatten:false,flattenRoofs:false,fillHoles:true,place:null};
+const settings={autoChain:true,invert:false,sens:1,sky:true,google:false,gkey:'',tilesYaw:180,tilesDH:0,tileDetail:'normal',showCol:false,tileCol:true,flatten:false,flattenRoofs:false,fillGaps:false,place:null};
 try{Object.assign(settings,JSON.parse(localStorage.getItem('super-traverse-settings')||'{}'));}catch(e){}
 function saveSettings(){try{localStorage.setItem('super-traverse-settings',JSON.stringify(settings));}catch(e){}}
 
@@ -442,7 +442,7 @@ const WU=25.6,WV=27.2,buildings=[];
 const geos={s:{p:[],n:[],u:[],c:[]},b:{p:[],n:[],u:[],c:[]},g:{p:[],n:[],u:[],c:[]}};let G=geos.s;
 function pushV(x,y,z,n,u,v,col){G.p.push(x,y,z);G.n.push(n[0],n[1],n[2]);G.u.push(u,v);G.c.push(col.r,col.g,col.b);}
 const BRICK=['#9a4a3a','#8b3f33','#a65a44','#7d4636','#b0715a'].map(h=>new THREE.Color(h)),GLASS=['#7f97ad','#6d8296','#8aa0b0','#5e7486','#9aaab4'].map(h=>new THREE.Color(h));
-const INSET=settings.google&&settings.fillHoles?1.5:0;
+const INSET=settings.google&&settings.fillGaps?1.5:0;
 const PAL=['#8e909e','#a48d7e','#6f7e92','#b8a78f','#7d717c','#5f6c7d','#9da2ab','#8a7a6c','#a39a8c','#6d7a86'].map(h=>new THREE.Color(h));
 const CELL=32,grid=new Map();let stamp=0;
 const gkey=(i,j)=>(i+512)*2048+(j+512);
@@ -1103,18 +1103,18 @@ function begin(){
 }
 $('play').addEventListener('click',()=>begin());
 $('mapBtn').addEventListener('click',()=>{$('mapPanel').hidden=!$('mapPanel').hidden;});
-function syncMap(){$('modeOSM').setAttribute('aria-pressed',!settings.google);$('modeG').setAttribute('aria-pressed',!!settings.google);$('colMode').setAttribute('aria-pressed',!!settings.tileCol);$('flatMode').setAttribute('aria-pressed',!!settings.flatten);$('flatRoofs').setAttribute('aria-pressed',!!settings.flattenRoofs);$('fillBtn').setAttribute('aria-pressed',!!settings.fillHoles);$('detail').textContent='Tile detail: '+settings.tileDetail;$('detail').setAttribute('aria-pressed',settings.tileDetail==='high');$('gkey').value=settings.gkey||'';}
+function syncMap(){$('modeOSM').setAttribute('aria-pressed',!settings.google);$('modeG').setAttribute('aria-pressed',!!settings.google);$('colMode').setAttribute('aria-pressed',!!settings.tileCol);$('flatMode').setAttribute('aria-pressed',!!settings.flatten);$('flatRoofs').setAttribute('aria-pressed',!!settings.flattenRoofs);$('fillBtn').setAttribute('aria-pressed',!!settings.fillGaps);$('detail').textContent='Tile detail: '+settings.tileDetail;$('detail').setAttribute('aria-pressed',settings.tileDetail==='high');$('gkey').value=settings.gkey||'';}
 syncMap();
 $('modeOSM').addEventListener('click',()=>{if(!settings.google)return;settings.google=false;saveSettings();location.reload();});
 $('modeG').addEventListener('click',()=>{settings.gkey=$('gkey').value.trim()||settings.gkey;if(!settings.gkey){$('gkey').focus();setStatus('Paste your key first, then choose Google 3D tiles.');return;}settings.google=true;saveSettings();location.reload();});
 $('gsave').addEventListener('click',()=>{settings.gkey=$('gkey').value.trim();saveSettings();setStatus(settings.gkey?'Key saved on this device.':'Key cleared.');});
-$('fillBtn').addEventListener('click',()=>{settings.fillHoles=!settings.fillHoles;saveSettings();$('fillBtn').setAttribute('aria-pressed',settings.fillHoles);if(gTiles)location.reload();});
+$('fillBtn').addEventListener('click',()=>{settings.fillGaps=!settings.fillGaps;saveSettings();$('fillBtn').setAttribute('aria-pressed',settings.fillGaps);if(gTiles)location.reload();});
 $('flatRoofs').addEventListener('click',()=>{settings.flattenRoofs=!settings.flattenRoofs;saveSettings();$('flatRoofs').setAttribute('aria-pressed',settings.flattenRoofs);if(gTiles)location.reload();});
 $('flatMode').addEventListener('click',()=>{settings.flatten=!settings.flatten;saveSettings();$('flatMode').setAttribute('aria-pressed',settings.flatten);if(gTiles)location.reload();});
 $('colMode').addEventListener('click',()=>{settings.tileCol=!settings.tileCol;saveSettings();$('colMode').setAttribute('aria-pressed',settings.tileCol);if(gTiles)location.reload();});
 $('detail').addEventListener('click',()=>{settings.tileDetail=settings.tileDetail==='high'?'normal':'high';saveSettings();syncMap();if(gTiles)gTiles.errorTarget=settings.tileDetail==='high'?12:20;});
 function syncAlign(){$('alignStat').textContent=`offset ${settings.tilesDH>0?'+':''}${settings.tilesDH} m · rotation ${settings.tilesYaw}°`;$('colBtn').setAttribute('aria-pressed',settings.showCol);}
-function applyCol(){const fill=!!(gTiles&&settings.fillHoles);for(let i=0;i<cityMeshes.length;i++){const cm=cityMeshes[i],m=cityMats[i];
+function applyCol(){const fill=!!(gTiles&&settings.fillGaps);for(let i=0;i<cityMeshes.length;i++){const cm=cityMeshes[i],m=cityMats[i];
  if(!gTiles){m.transparent=false;m.opacity=1;m.depthWrite=true;cm.visible=true;continue;}
  cm.visible=!!settings.showCol||fill;m.transparent=!!settings.showCol;m.opacity=settings.showCol?0.35:1;m.depthWrite=!settings.showCol;m.needsUpdate=true;}}
 $('dhDown').addEventListener('click',()=>{settings.tilesDH-=2;saveSettings();applyTilesTransform();syncAlign();});
@@ -1206,7 +1206,7 @@ function setupFlatten(){
  const inBld=(x,z)=>{query(x,z,x,z,QB);return QB.some(b=>b.y0<b.base+1&&pip(b,x,z));};
  if(settings.flatten)for(const r of CITY.roads){if(r.c==='track')continue;const foot=FOOT.test(r.c),out=foot?walk:pos,hw=foot?r.w*0.5+0.4:r.w*0.5+1.8,p=r.p;
   for(let i=0;i<p.length-1;i++){const ax=p[i][0],az=p[i][1],bx=p[i+1][0],bz=p[i+1][1],L=Math.hypot(bx-ax,bz-az);if(L<0.5)continue;
-   const ux=(bx-ax)/L,uz=(bz-az)/L,nx=-uz*hw,nz=ux*hw,steps=Math.max(1,Math.ceil(L/8));
+   const ux=(bx-ax)/L,uz=(bz-az)/L,nx=-uz*hw,nz=ux*hw,steps=Math.max(1,Math.ceil(L/30));
    for(let k=0;k<steps;k++){const t0=k/steps,t1=(k+1)/steps,x0=ax+(bx-ax)*t0,z0=az+(bz-az)*t0,x1=ax+(bx-ax)*t1,z1=az+(bz-az)*t1;
     if(inBld((x0+x1)/2,(z0+z1)/2))continue;
     const A=[x0+nx,heightAt(x0+nx,z0+nz),z0+nz],B=[x0-nx,heightAt(x0-nx,z0-nz),z0-nz],C=[x1-nx,heightAt(x1-nx,z1-nz),z1-nz],D=[x1+nx,heightAt(x1+nx,z1+nz),z1+nz];
@@ -1221,8 +1221,8 @@ function setupFlatten(){
  // the plugin works in the tile set's own frame, so express the shapes and "up" in that frame
  gWrap.updateMatrixWorld(true);const inv=gTiles.group.matrixWorld.clone().invert(),up=new THREE.Vector3(0,1,0).transformDirection(inv);
  const mk=a=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial());inv.decompose(m.position,m.quaternion,m.scale);return m;};
- // split into 60 m cells so each tile only tests the few shape pieces that overlap it
- const cells=(arr,th)=>{const m=new Map();for(let i=0;i<arr.length;i+=9){const cx=(arr[i]+arr[i+3]+arr[i+6])/3,cz=(arr[i+2]+arr[i+5]+arr[i+8])/3,k=Math.floor(cx/60)+':'+Math.floor(cz/60);let a=m.get(k);if(!a){a=[];m.set(k,a);}for(let q=0;q<9;q++)a.push(arr[i+q]);}
+ // split into 40 m cells so each tile only tests the few shape pieces that overlap it
+ const cells=(arr,th)=>{const m=new Map();for(let i=0;i<arr.length;i+=9){const cx=(arr[i]+arr[i+3]+arr[i+6])/3,cz=(arr[i+2]+arr[i+5]+arr[i+8])/3,k=Math.floor(cx/40)+':'+Math.floor(cz/40);let a=m.get(k);if(!a){a=[];m.set(k,a);}for(let q=0;q<9;q++)a.push(arr[i+q]);}
   for(const a of m.values())gFlat.addShape(mk(a),up,th);return m.size;};
  try{gFlat.clearShapes();if(pos.length)cells(pos,7);if(walk.length)cells(walk,3.5);if(roof.length)cells(roof,4);bvhReset=3;
   toast(pos.length&&roof.length?'Streets and rooftops flattened':pos.length?'Streets flattened':'Rooftops flattened');}catch(e){console.warn('flatten failed',e);}
@@ -1281,9 +1281,26 @@ function cleanWallNormal(h,px,py,pz){
  L=Math.hypot(sx,sz)||1;_hn.x=sx/L;_hn.z=sz/L;return _hn;
 }
 function groundSample(x,y,z,far){
- const c=castDown(x,y,z,far);if(!c||c.ny<0.45)return null;
- const ys=[c.y];for(const[ox,oz]of[[0.35,0],[-0.35,0],[0,0.35],[0,-0.35]]){const r=castDown(x+ox,y,z+oz,far+0.6);if(r&&r.ny>0.45&&Math.abs(r.y-c.y)<0.8)ys.push(r.y);}
- ys.sort((a,b)=>a-b);return ys[ys.length>>1];
+ const ys=[];for(const[ox,oz]of[[0,0],[0.6,0],[-0.6,0],[0,0.6],[0,-0.6]]){const r=castDown(x+ox,y,z+oz,far+0.6);if(r&&r.ny>0.45)ys.push(r.y);}
+ if(!ys.length)return null;ys.sort((a,b)=>b-a);
+ // highest height that at least two rays agree on: small holes and cracks in a roof are bridged
+ for(let i=0;i<ys.length-1;i++){if(ys[i]-ys[i+1]<0.5){const cl=ys.filter(v=>Math.abs(v-ys[i])<0.5).sort((a,b)=>a-b);return cl[cl.length>>1];}}
+ return ys.length===1?ys[0]:ys[ys.length>>1];
+}
+// Column rule: a large flat surface overhead that belongs to a mapped building is treated as solid all the
+// way down, so the hero can't slip into hollow space under overhangs or roofs whose walls are missing.
+function columnBlock(p,v,hs,dt){
+ const ux=v.x/hs,uz=v.z/hs,qx=p.x+ux*0.6,qz=p.z+uz*0.6;
+ query(qx-3,qz-3,qx+3,qz+3,QB);let nearB=false;for(const b of QB){if(pip(b,qx,qz)||(closestEdge(b,qx,qz)&&CE.d<3)){nearB=true;break;}}
+ if(!nearB)return;
+ // already inside such a column (slipped under a roof): stand on top of it instead of being trapped
+ const here=castDown(p.x,p.y+40,p.z,37.8);
+ if(here&&here.ny>0.8&&here.y>p.y+2.2){if(P.grounded){let n2=0;for(const[ox,oz]of[[2,0],[-2,0],[0,2],[0,-2]]){const r=castDown(p.x+ox,p.y+40,p.z+oz,37.8);if(r&&r.ny>0.7&&Math.abs(r.y-here.y)<1.5)n2++;}
+   if(n2>=2){p.y=here.y+0.02;v.y=0;}}return;}
+ const top=castDown(qx,p.y+40,qz,37.8);if(!top||top.ny<0.8||top.y<p.y+2.2)return;
+ const tx=-uz,tz=ux;let ok=0;for(const o of[-2,2]){const r=castDown(qx+tx*o,p.y+40,qz+tz*o,37.8);if(r&&r.ny>0.7&&Math.abs(r.y-top.y)<1.5)ok++;}
+ if(ok<2)return;
+ p.x-=v.x*dt;p.z-=v.z*dt;v.x=0;v.z=0;
 }
 function tileCollide(p,v,inp,wish,dt){
  const R=0.4,wasG=P.grounded;P.grounded=false;let wall=null;const hs=Math.hypot(v.x,v.z);
@@ -1318,6 +1335,7 @@ function tileCollide(p,v,inp,wish,dt){
     const st=groundSample(h.x-nx*0.35,p.y+1.6,h.z-nz*0.35,1.6);
     if(P.grounded&&st!==null&&st-p.y<1.2){p.x=h.x-nx*0.35;p.z=h.z-nz*0.35;p.y=st;}
     else{const off=(p.x-h.x)*nx+(p.z-h.z)*nz;if(off<R){p.x+=nx*(R-off);p.z+=nz*(R-off);}const vn=v.x*nx+v.z*nz;if(vn<0){v.x-=nx*vn;v.z-=nz*vn;}wall=[nx,nz,null,-vn];}}}
+  if(!wall&&hs>0.2)columnBlock(p,v,hs,dt);
   if(wall&&P.wallCd<=0&&(P.state==='air'||P.state==='swing'||P.state==='ground')){
    const nx=wall[0],nz=wall[1],into=-(wish.x*nx+wish.z*nz),ok=P.state==='ground'?into>0.6:(P.state==='swing'||into>-0.3||wall[3]>4);
    const above=castT(p.x+nx*0.6,p.y+2.6,p.z+nz*0.6,-nx,0,-nz,1.6);
