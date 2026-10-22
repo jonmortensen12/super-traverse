@@ -140,10 +140,10 @@ input{-webkit-user-select:text;user-select:text}
       <div class="row"><button class="opt" id="modeOSM" aria-pressed="true">OpenStreetMap (free)</button><button class="opt" id="modeA" aria-pressed="false">USGS aerial (US, free)</button><button class="opt" id="modeG" aria-pressed="false">Google 3D tiles</button></div>
       <label class="lbl" for="gkey">Google Map Tiles API key</label>
       <div class="row"><input id="gkey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…"><button class="opt" id="gsave">Save key</button></div>
-      <div class="row"><button class="opt" id="detail" aria-pressed="false">Tile detail: normal</button><button class="opt" id="colMode" aria-pressed="true">Collide with Google 3D mesh</button><button class="opt" id="flatMode" aria-pressed="false">Flatten streets</button><button class="opt" id="flatRoofs" aria-pressed="false">Flatten rooftops</button><button class="opt" id="fillBtn" aria-pressed="false">Fill tile gaps with map buildings</button></div>
+      <div class="row"><button class="opt" id="detail" aria-pressed="false">Tile detail: normal</button><button class="opt" id="colMode" aria-pressed="true">Collide with Google 3D mesh</button><button class="opt" id="flatMode" aria-pressed="false">Flatten streets</button><button class="opt" id="flatRoofs" aria-pressed="false">Flatten rooftops</button><button class="opt" id="fillBtn" aria-pressed="false">Fill tile gaps with map buildings</button><button class="opt" id="snapBtn" aria-pressed="false">Snap buildings to map shapes (experimental)</button></div>
       <p class="note">The key is saved only in this browser on this device. Each Google session counts as one billable request (1,000 free per month). Switching visuals or flattening reloads the page. Flattening is experimental: it presses cars and clutter onto clean streets, and rooftop gear onto clean roofs where the map height agrees with the real roof.</p>
     </div>
-    <div class="padStat" id="buildStamp"><!--BUILD-->Build 12 · Oct 21, 2026 · 5:52 PM PT<!--/BUILD--></div>
+    <div class="padStat" id="buildStamp"><!--BUILD-->Build 13 · Oct 22, 2026 · 9:26 AM PT<!--/BUILD--></div>
     <div class="go" id="goText">Press Play, or any controller button</div>
     <div class="padStat" id="padStat">Controller not detected yet. Press any button on it to wake it up.</div>
   </div>
@@ -206,7 +206,7 @@ import * as THREE from 'three';
 const $=id=>document.getElementById(id);
 let gTiles=null,gAuth=null,gWrap=null,gStart=0,gDiag=false,gFlat=null,bvhReset=0;
 let tilesAligned=false,autoDH=0,bvhT=0,seatT=0,seatStart=0,tileColFailed=false;
-const tileCol=()=>!!(gTiles&&settings.tileCol&&tilesAligned&&!tileColFailed);
+const tileCol=()=>!!(gTiles&&settings.tileCol&&!settings.snapB&&tilesAligned&&!tileColFailed);
 function setStatus(t){const e=$('loadStat');if(e)e.textContent=t;}
 function showMsg(t,m){const e=$('gmsg');if(e){e.textContent=t+': '+m;e.hidden=false;}}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -217,7 +217,7 @@ const angDiff=(a,b)=>{let d=(a-b)%TAU;if(d>Math.PI)d-=TAU;if(d<-Math.PI)d+=TAU;r
 
 /* ---------- tuning ---------- */
 const T={G:28,RUN:16,JUMP:13,AIRACC:10,AIRMAX:16,PUMP:13,MAXV:78,WALL_UP:13,WALL_SIDE:9,ZIP:60,LUNGE:42};
-const settings={autoChain:true,invert:false,sens:1,sky:true,google:false,gkey:'',tilesYaw:180,tilesDH:0,tileDetail:'normal',showCol:false,tileCol:true,flatten:false,flattenRoofs:false,fillGaps:false,aerial:false,place:null};
+const settings={autoChain:true,invert:false,sens:1,sky:true,google:false,gkey:'',tilesYaw:180,tilesDH:0,tileDetail:'normal',showCol:false,tileCol:true,flatten:false,flattenRoofs:false,fillGaps:false,aerial:false,snapB:false,place:null};
 try{Object.assign(settings,JSON.parse(localStorage.getItem('super-traverse-settings')||'{}'));}catch(e){}
 function saveSettings(){try{localStorage.setItem('super-traverse-settings',JSON.stringify(settings));}catch(e){}}
 
@@ -974,7 +974,7 @@ let attackCd=2,danger=false;
 function updateEnemies(dt){
  attackCd-=dt;danger=false;
  for(const e of enemies){
-  if(e.dead)continue;if(gTiles&&settings.tileCol&&!tileColFailed&&!e.site.seated)continue;
+  if(e.dead)continue;if(gTiles&&settings.tileCol&&!settings.snapB&&!tileColFailed&&!e.site.seated)continue;
   if(e.state==='idle'&&Math.abs(e.pos.x-P.p.x)+Math.abs(e.pos.z-P.p.z)>260){e.mesh.position.copy(e.pos);continue;}
   e.stateT+=dt;e.flash-=dt;e.stun-=dt;e.swingAnim-=dt;
   const gy=groundAt(e.pos.x,e.pos.z,e.pos.y+0.2);
@@ -1136,12 +1136,13 @@ function begin(){
 }
 $('play').addEventListener('click',()=>begin());
 $('mapBtn').addEventListener('click',()=>{$('mapPanel').hidden=!$('mapPanel').hidden;});
-function syncMap(){$('modeOSM').setAttribute('aria-pressed',!settings.google&&!settings.aerial);$('modeA').setAttribute('aria-pressed',!!settings.aerial&&!settings.google);$('modeG').setAttribute('aria-pressed',!!settings.google);$('colMode').setAttribute('aria-pressed',!!settings.tileCol);$('flatMode').setAttribute('aria-pressed',!!settings.flatten);$('flatRoofs').setAttribute('aria-pressed',!!settings.flattenRoofs);$('fillBtn').setAttribute('aria-pressed',!!settings.fillGaps);$('detail').textContent='Tile detail: '+settings.tileDetail;$('detail').setAttribute('aria-pressed',settings.tileDetail==='high');$('gkey').value=settings.gkey||'';}
+function syncMap(){$('modeOSM').setAttribute('aria-pressed',!settings.google&&!settings.aerial);$('modeA').setAttribute('aria-pressed',!!settings.aerial&&!settings.google);$('modeG').setAttribute('aria-pressed',!!settings.google);$('colMode').setAttribute('aria-pressed',!!settings.tileCol);$('flatMode').setAttribute('aria-pressed',!!settings.flatten);$('flatRoofs').setAttribute('aria-pressed',!!settings.flattenRoofs);$('fillBtn').setAttribute('aria-pressed',!!settings.fillGaps);$('snapBtn').setAttribute('aria-pressed',!!settings.snapB);$('detail').textContent='Tile detail: '+settings.tileDetail;$('detail').setAttribute('aria-pressed',settings.tileDetail==='high');$('gkey').value=settings.gkey||'';}
 syncMap();
 $('modeOSM').addEventListener('click',()=>{if(!settings.google&&!settings.aerial)return;settings.google=false;settings.aerial=false;saveSettings();location.reload();});
 $('modeA').addEventListener('click',()=>{if(settings.aerial&&!settings.google)return;settings.google=false;settings.aerial=true;saveSettings();location.reload();});
 $('modeG').addEventListener('click',()=>{settings.gkey=$('gkey').value.trim()||settings.gkey;if(!settings.gkey){$('gkey').focus();setStatus('Paste your key first, then choose Google 3D tiles.');return;}settings.google=true;settings.aerial=false;saveSettings();location.reload();});
 $('gsave').addEventListener('click',()=>{settings.gkey=$('gkey').value.trim();saveSettings();setStatus(settings.gkey?'Key saved on this device.':'Key cleared.');});
+$('snapBtn').addEventListener('click',()=>{settings.snapB=!settings.snapB;saveSettings();$('snapBtn').setAttribute('aria-pressed',settings.snapB);if(gTiles)location.reload();});
 $('fillBtn').addEventListener('click',()=>{settings.fillGaps=!settings.fillGaps;saveSettings();$('fillBtn').setAttribute('aria-pressed',settings.fillGaps);if(gTiles)location.reload();});
 $('flatRoofs').addEventListener('click',()=>{settings.flattenRoofs=!settings.flattenRoofs;saveSettings();$('flatRoofs').setAttribute('aria-pressed',settings.flattenRoofs);if(gTiles)location.reload();});
 $('flatMode').addEventListener('click',()=>{settings.flatten=!settings.flatten;saveSettings();$('flatMode').setAttribute('aria-pressed',settings.flatten);if(gTiles)location.reload();});
@@ -1192,7 +1193,7 @@ async function startGoogle(){
   tiles.registerPlugin(new ReorientationPlugin({lat:CITY.lat0*Math.PI/180,lon:CITY.lon0*Math.PI/180,height:refElev+(IS_SLC?GEOID_N:0),up:'+y',recenter:true}));
   tiles.errorTarget=settings.tileDetail==='high'?12:20;
   try{const {TilesFadePlugin}=await import('3d-tiles-renderer/src/plugins/three/fade/TilesFadePlugin.js');tiles.registerPlugin(new TilesFadePlugin());}catch(e){console.warn('fade unavailable',e);}
-  if(settings.flatten||settings.flattenRoofs){try{const {TileFlatteningPlugin}=await import('3d-tiles-renderer/src/plugins/three/TileFlatteningPlugin.js');gFlat=new TileFlatteningPlugin();tiles.registerPlugin(gFlat);}catch(e){console.warn('flattening unavailable',e);gFlat=null;}}
+  if(settings.flatten||settings.flattenRoofs||settings.snapB)tiles.addEventListener('tile-visibility-change',e=>{const sc=e.scene;if(e.visible&&sc&&!sc.userData.stDone){sc.userData.stDone=1;reshapeQ.push(sc);}});
   tiles.setCamera(camera);tiles.setResolutionFromRenderer(camera,renderer);
   gWrap=new THREE.Group();gWrap.add(tiles.group);scene.add(gWrap);applyTilesTransform();
   gTiles=tiles;gStart=performance.now();
@@ -1214,8 +1215,9 @@ let gAttrT=0;
 function updateGoogle(rdt){
  if(!gTiles)return;
  camera.updateMatrixWorld();gTiles.setResolutionFromRenderer(camera,renderer);gTiles.update();
+ processReshape(rdt>0.03?3:6);
  if(bvhReset>0&&--bvhReset===0)gTiles.group.traverse(o=>{if(o.isMesh&&o.geometry&&o.geometry.boundsTree){try{o.geometry.disposeBoundsTree();}catch(e){o.geometry.boundsTree=null;}}});
- if(settings.tileCol&&!tileColFailed){if(THREE.BufferGeometry.prototype.computeBoundsTree)buildBVHs();seatT-=rdt;if(seatT<=0){seatT=0.5;alignAndSeat();}}
+ if((settings.tileCol||settings.snapB||settings.flatten||settings.flattenRoofs)&&!tileColFailed){if(THREE.BufferGeometry.prototype.computeBoundsTree&&!settings.snapB)buildBVHs();seatT-=rdt;if(seatT<=0){seatT=0.5;alignAndSeat();}}
  if(!gDiag&&performance.now()-gStart>12000&&gTiles.visibleTiles&&gTiles.visibleTiles.size===0)diagnoseGoogle();
  gAttrT-=rdt;if(gAttrT<=0){gAttrT=1;try{const a=[];gAuth.getAttributions(a);const s=a.filter(x=>x.type==='string').map(x=>x.value).join('; ');$('gattribTxt').textContent=s?' · '+s:'';}catch(_){}}
 }
@@ -1232,34 +1234,59 @@ function castT(ox,oy,oz,dx,dy,dz,far){
 const castDown=(x,y,z,far)=>castT(x,y,z,0,-1,0,far);
 function buildBVHs(){let n=0;gTiles.group.traverse(o=>{if(n>=3||!o.isMesh||!o.geometry||o.geometry.boundsTree||o.geometry.__bvhFail)return;
  try{o.geometry.computeBoundsTree();}catch(e){o.geometry.__bvhFail=true;}n++;});}
-// Street flattening: road ribbons at street level press down cars, poles and clutter in the
-// photogrammetry so streets read (and play) as clean surfaces. Experimental, off by default.
+// In-place cleanup of the Google mesh. As each tile appears, every vertex is checked against nearby map
+// shapes (OpenStreetMap, never derived from the tiles) and moved only if it is within a bounded distance on
+// both sides: roof clutter pressed onto mapped roofs, street clutter onto the street, and with "snap"
+// facades pressed onto the mapped walls. Nothing is copied out of the tiles or stored.
+let reshapeOn=false,reshapeReady=false;const reshapeQ=[],QR=[];let roadGrid=null;
+const RS={roofDn:1.5,roofUp:4,snap:false,wall:3,street:false};
 function setupFlatten(){
- if(!gFlat||!gTiles)return;
- const pos=[],walk=[],FOOT=/footway|path|cycleway|pedestrian|steps|bridleway|corridor/;
- const inBld=(x,z)=>{query(x,z,x,z,QB);return QB.some(b=>b.y0<b.base+1&&pip(b,x,z));};
- if(settings.flatten)for(const r of CITY.roads){if(r.c==='track')continue;const foot=FOOT.test(r.c),out=foot?walk:pos,hw=foot?r.w*0.5+0.4:r.w*0.5+1.8,p=r.p;
-  for(let i=0;i<p.length-1;i++){const ax=p[i][0],az=p[i][1],bx=p[i+1][0],bz=p[i+1][1],L=Math.hypot(bx-ax,bz-az);if(L<0.5)continue;
-   const ux=(bx-ax)/L,uz=(bz-az)/L,nx=-uz*hw,nz=ux*hw,steps=Math.max(1,Math.ceil(L/30));
-   for(let k=0;k<steps;k++){const t0=k/steps,t1=(k+1)/steps,x0=ax+(bx-ax)*t0,z0=az+(bz-az)*t0,x1=ax+(bx-ax)*t1,z1=az+(bz-az)*t1;
-    if(inBld((x0+x1)/2,(z0+z1)/2))continue;
-    const A=[x0+nx,heightAt(x0+nx,z0+nz),z0+nz],B=[x0-nx,heightAt(x0-nx,z0-nz),z0-nz],C=[x1-nx,heightAt(x1-nx,z1-nz),z1-nz],D=[x1+nx,heightAt(x1+nx,z1+nz),z1+nz];
-    out.push(...A,...B,...C,...A,...C,...D);}}}
- // flat roofs from the map: only roof detail within 4 m of the mapped height is pressed flat,
- // so roofs whose mapped height is wrong are left untouched
- const roof=[];
- if(settings.flattenRoofs)for(const b of buildings){if(b.rh>0||b.area<40)continue;const c=[];for(let i=0;i<b.n;i++)c.push(new THREE.Vector2(b.pts[2*i],b.pts[2*i+1]));
-  let tr=[];try{tr=THREE.ShapeUtils.triangulateShape(c,[]);}catch(e){continue;}
-  for(const t of tr)for(const k of t)roof.push(b.pts[2*k],b.y1,b.pts[2*k+1]);}
- if(!pos.length&&!roof.length&&!walk.length)return;
- // the plugin works in the tile set's own frame, so express the shapes and "up" in that frame
- gWrap.updateMatrixWorld(true);const inv=gTiles.group.matrixWorld.clone().invert(),up=new THREE.Vector3(0,1,0).transformDirection(inv);
- const mk=a=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial());inv.decompose(m.position,m.quaternion,m.scale);return m;};
- // split into 40 m cells so each tile only tests the few shape pieces that overlap it
- const cells=(arr,th)=>{const m=new Map();for(let i=0;i<arr.length;i+=9){const cx=(arr[i]+arr[i+3]+arr[i+6])/3,cz=(arr[i+2]+arr[i+5]+arr[i+8])/3,k=Math.floor(cx/40)+':'+Math.floor(cz/40);let a=m.get(k);if(!a){a=[];m.set(k,a);}for(let q=0;q<9;q++)a.push(arr[i+q]);}
-  for(const a of m.values())gFlat.addShape(mk(a),up,th);return m.size;};
- try{gFlat.clearShapes();if(pos.length)cells(pos,7);if(walk.length)cells(walk,3.5);if(roof.length)cells(roof,4);bvhReset=3;
-  toast(pos.length&&roof.length?'Streets and rooftops flattened':pos.length?'Streets flattened':'Rooftops flattened');}catch(e){console.warn('flatten failed',e);}
+ reshapeOn=!!(settings.flatten||settings.flattenRoofs||settings.snapB);if(!reshapeOn)return;
+ Object.assign(RS,{roof:!!(settings.flattenRoofs||settings.snapB),roofDn:settings.snapB?6:1.5,roofUp:settings.snapB?8:4,snap:!!settings.snapB,street:!!settings.flatten});
+ if(RS.street){roadGrid=new Map();const FOOT=/footway|path|cycleway|pedestrian|steps|bridleway|corridor/;
+  for(const r of CITY.roads){if(r.c==='track')continue;const foot=FOOT.test(r.c),hw=foot?r.w*0.5+0.4:r.w*0.5+1.8,up=foot?3.5:7,p=r.p;
+   for(let k=0;k<p.length-1;k++){const sg=[p[k][0],p[k][1],p[k+1][0],p[k+1][1],hw,up];
+    for(let a=Math.floor((Math.min(sg[0],sg[2])-hw)/32);a<=Math.floor((Math.max(sg[0],sg[2])+hw)/32);a++)for(let c=Math.floor((Math.min(sg[1],sg[3])-hw)/32);c<=Math.floor((Math.max(sg[1],sg[3])+hw)/32);c++){const key=a*100000+c;let L=roadGrid.get(key);if(!L){L=[];roadGrid.set(key,L);}L.push(sg);}}}}
+ reshapeReady=true;
+ toast(settings.snapB?'Snapping buildings to map shapes':'Cleaning up the 3D mesh');
+}
+// returns 0 if unchanged, 1 if y changed, 2 if x/z changed (writes into _rv)
+const _rv={x:0,y:0,z:0};
+function reshapeVertex(x,y,z){
+ _rv.x=x;_rv.y=y;_rv.z=z;
+ query(x-3.5,z-3.5,x+3.5,z+3.5,QR);
+ let roofY=null,roofDy=1e9,wallD=RS.wall,wx=0,wz=0,inBld=false;
+ for(const b of QR){
+  if(y<b.y0-2||y>b.ytop+RS.roofUp+1)continue;
+  const inside=pip(b,x,z);if(!closestEdge(b,x,z))continue;const d=CE.d;if(!inside&&d>3.5)continue;
+  if(inside&&b.y0<b.base+1)inBld=true;
+  const top=topAt(b,inside,d);
+  const dy=y-top;
+  if(RS.roof&&inside&&(d>1.5||y>=top-1)&&dy>-RS.roofDn&&dy<RS.roofUp){if(Math.abs(dy)<Math.abs(roofDy)){roofDy=dy;roofY=top;}}
+  else if(RS.snap&&d<wallD&&y<=b.y1+0.3&&(inside||y>b.base+2.5)){wallD=d;wx=CE.px;wz=CE.pz;}
+ }
+ if(roofY!==null){_rv.y=roofY;return 1;}
+ if(wallD<RS.wall){_rv.x=wx;_rv.z=wz;return 2;}
+ if(RS.street&&!inBld&&roadGrid){const L=roadGrid.get(Math.floor(x/32)*100000+Math.floor(z/32));if(L){const g=heightAt(x,z),dy=y-g;
+  if(dy>-2&&dy<7){for(const sg of L){const ex=sg[2]-sg[0],ez=sg[3]-sg[1],l2=ex*ex+ez*ez||1;let t=((x-sg[0])*ex+(z-sg[1])*ez)/l2;t=t<0?0:t>1?1:t;
+    const qx=sg[0]+ex*t-x,qz=sg[1]+ez*t-z;if(qx*qx+qz*qz<sg[4]*sg[4]&&dy<sg[5]){_rv.y=g;return 1;}}}}}
+ return 0;
+}
+let rJob=null;const _rm=new THREE.Matrix4(),_ri=new THREE.Matrix4(),_rp=new THREE.Vector3();
+function processReshape(budget){
+ if(!reshapeOn||!reshapeReady||!gTiles)return;const t0=performance.now();
+ while(performance.now()-t0<budget){
+  if(!rJob){const sc=reshapeQ.shift();if(!sc)return;const meshes=[];sc.traverse(c=>{if(c.isMesh&&c.geometry&&c.geometry.attributes.position)meshes.push(c);});rJob={sc,meshes,mi:0,i:0,m:null,ch:false};}
+  const J=rJob;if(J.mi>=J.meshes.length){rJob=null;continue;}
+  const c=J.meshes[J.mi],pos=c.geometry.attributes.position;
+  if(!J.m){_rm.identity();for(let o=c;o;o=o.parent){if(o.matrixAutoUpdate)o.updateMatrix();_rm.premultiply(o.matrix);if(o===J.sc)break;}
+   _rm.premultiply(gTiles.group.matrixWorld);J.m=_rm.clone();J.inv=_rm.clone().invert();}
+  const end=Math.min(pos.count,J.i+2048);
+  for(let i=J.i;i<end;i++){_rp.fromBufferAttribute(pos,i).applyMatrix4(J.m);if(reshapeVertex(_rp.x,_rp.y,_rp.z)){_rp.set(_rv.x,_rv.y,_rv.z).applyMatrix4(J.inv);pos.setXYZ(i,_rp.x,_rp.y,_rp.z);J.ch=true;}}
+  J.i=end;
+  if(J.i>=pos.count){const g=c.geometry;if(J.ch){pos.needsUpdate=true;g.computeBoundingSphere();g.computeBoundingBox();if(g.boundsTree){try{g.disposeBoundsTree();}catch(e){g.boundsTree=null;}}if(g.attributes.normal)g.computeVertexNormals();}
+   J.mi++;J.i=0;J.m=null;J.ch=false;}
+ }
 }
 function alignAndSeat(){
  const now=performance.now();if(!seatStart)seatStart=now;
@@ -1273,13 +1300,13 @@ function alignAndSeat(){
   else if(now-seatStart>30000){tilesAligned=true;setupFlatten();}
   return;
  }
- if(!P.seated){
+ if(!P.seated&&!settings.snapB){
   const h=castDown(start.x,start.y+150,start.z,450);
   if(h&&h.ny>0.5){start.y=h.y;P.p.set(start.x,h.y+0.05,start.z);P.v.set(0,0,0);P.seated=true;setState('ground');
    if(settings.tileCol)toast('Colliding with Google 3D buildings');}
   else if(now-seatStart>40000){tileColFailed=true;P.seated=true;showMsg('Google 3D collision','The tiles under the start roof never finished loading, so collision fell back to map shapes.');}
  }
- for(const s of sites){if(s.seated)continue;if(Math.hypot(s.x-P.p.x,s.z-P.p.z)>420)continue;
+ if(!settings.snapB)for(const s of sites){if(s.seated)continue;if(Math.hypot(s.x-P.p.x,s.z-P.p.z)>420)continue;
   const h=castDown(s.x,s.y+120,s.z,320);if(h&&h.ny>0.6){const dy=h.y-s.y;s.y=h.y;s.beam.position.y+=dy;for(const e of s.enemies)e.pos.y+=dy;s.seated=true;}}
 }
 function tileFindAnchor(dir,right,want){
@@ -1401,7 +1428,7 @@ function frame(now){
  if(hitstop>0)hitstop-=rdt;else if(slowmo>0)slowmo-=rdt;
  const ts=hitstop>0?0.06:slowmo>0?0.35:1,dt=rdt*ts;clockT+=dt;
  const held={};for(const k in inp)held[k]=k.endsWith('P')?false:inp[k];
- if(gTiles&&settings.tileCol&&!tileColFailed&&!P.seated){if(!P.waitToast){P.waitToast=1;toast('Waiting for Google 3D tiles…');}}else{updatePlayer(dt/2,inp);updatePlayer(dt/2,held);}
+ if(gTiles&&settings.tileCol&&!settings.snapB&&!tileColFailed&&!P.seated){if(!P.waitToast){P.waitToast=1;toast('Waiting for Google 3D tiles…');}}else{updatePlayer(dt/2,inp);updatePlayer(dt/2,held);}
  updateEnemies(dt);updateCamera(rdt,inp);updateHero(dt);updateCars(dt);updateHUD(rdt);
  if(AC&&windG){const sp=P.v.length(),tgt=Math.pow(clamp((sp-8)/60,0,1),1.5)*0.32;windG.gain.setTargetAtTime(tgt,AC.currentTime,0.08);windF.frequency.setTargetAtTime(280+sp*28,AC.currentTime,0.1);}
  updateGoogle(rdt);renderer.render(scene,camera);drawFX();
