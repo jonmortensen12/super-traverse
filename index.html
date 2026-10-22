@@ -105,7 +105,7 @@ input{-webkit-user-select:text;user-select:text}
 <div id="hurt"></div>
 
 <div class="hudel tl" id="hpWrap"><div class="lbl">Vitals</div><div id="hp"><i></i><i></i><i></i><i></i><i></i></div><div id="where">Salt Lake City</div></div>
-<div class="hudel" id="attrib">Map data © OpenStreetMap contributors<span id="gattrib" hidden> · Google Maps<span id="gattribTxt"></span></span></div>
+<div class="hudel" id="attrib">Map data © OpenStreetMap contributors<span id="aattrib" hidden> · Imagery USDA NAIP / USGS</span><span id="gattrib" hidden> · Google Maps<span id="gattribTxt"></span></span></div>
 <div class="hudel tc" id="obj">
   <svg id="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L20 20 L12 15 L4 20 Z" fill="#ffc96b"/></svg>
   <div><div class="lbl" id="objLbl">Rooftops 0/4</div><div id="objDist">— m</div></div>
@@ -137,13 +137,13 @@ input{-webkit-user-select:text;user-select:text}
     <div class="padStat warn" id="gmsg" hidden></div>
     <div class="mapPanel" id="mapPanel" hidden>
       <div class="lbl">Visuals</div>
-      <div class="row"><button class="opt" id="modeOSM" aria-pressed="true">OpenStreetMap (free)</button><button class="opt" id="modeG" aria-pressed="false">Google 3D tiles</button></div>
+      <div class="row"><button class="opt" id="modeOSM" aria-pressed="true">OpenStreetMap (free)</button><button class="opt" id="modeA" aria-pressed="false">USGS aerial (US, free)</button><button class="opt" id="modeG" aria-pressed="false">Google 3D tiles</button></div>
       <label class="lbl" for="gkey">Google Map Tiles API key</label>
       <div class="row"><input id="gkey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…"><button class="opt" id="gsave">Save key</button></div>
       <div class="row"><button class="opt" id="detail" aria-pressed="false">Tile detail: normal</button><button class="opt" id="colMode" aria-pressed="true">Collide with Google 3D mesh</button><button class="opt" id="flatMode" aria-pressed="false">Flatten streets</button><button class="opt" id="flatRoofs" aria-pressed="false">Flatten rooftops</button><button class="opt" id="fillBtn" aria-pressed="false">Fill tile gaps with map buildings</button></div>
       <p class="note">The key is saved only in this browser on this device. Each Google session counts as one billable request (1,000 free per month). Switching visuals or flattening reloads the page. Flattening is experimental: it presses cars and clutter onto clean streets, and rooftop gear onto clean roofs where the map height agrees with the real roof.</p>
     </div>
-    <div class="padStat" id="buildStamp"><!--BUILD-->Build 11 · Oct 21, 2026 · 5:03 PM PT<!--/BUILD--></div>
+    <div class="padStat" id="buildStamp"><!--BUILD-->Build 12 · Oct 21, 2026 · 5:52 PM PT<!--/BUILD--></div>
     <div class="go" id="goText">Press Play, or any controller button</div>
     <div class="padStat" id="padStat">Controller not detected yet. Press any button on it to wake it up.</div>
   </div>
@@ -217,7 +217,7 @@ const angDiff=(a,b)=>{let d=(a-b)%TAU;if(d>Math.PI)d-=TAU;if(d<-Math.PI)d+=TAU;r
 
 /* ---------- tuning ---------- */
 const T={G:28,RUN:16,JUMP:13,AIRACC:10,AIRMAX:16,PUMP:13,MAXV:78,WALL_UP:13,WALL_SIDE:9,ZIP:60,LUNGE:42};
-const settings={autoChain:true,invert:false,sens:1,sky:true,google:false,gkey:'',tilesYaw:180,tilesDH:0,tileDetail:'normal',showCol:false,tileCol:true,flatten:false,flattenRoofs:false,fillGaps:false,place:null};
+const settings={autoChain:true,invert:false,sens:1,sky:true,google:false,gkey:'',tilesYaw:180,tilesDH:0,tileDetail:'normal',showCol:false,tileCol:true,flatten:false,flattenRoofs:false,fillGaps:false,aerial:false,place:null};
 try{Object.assign(settings,JSON.parse(localStorage.getItem('super-traverse-settings')||'{}'));}catch(e){}
 function saveSettings(){try{localStorage.setItem('super-traverse-settings',JSON.stringify(settings));}catch(e){}}
 
@@ -437,9 +437,41 @@ async function loadTerrain(){
 setStatus('Loading terrain elevation…');
 try{await loadTerrain();}catch(e){terrain.fill(0);setStatus('Elevation unavailable, using flat ground');console.warn(e);}
 
+/* ---------- USGS aerial imagery (USDA NAIP, public domain) ---------- */
+// Rendered on demand by the USGS export endpoint at ~0.9 m per pixel for the whole terrain area,
+// then used as the ground texture and projected straight down onto roofs.
+let aerialCanvas=null,aerialTex=null;
+const IN_US=(la,lo)=>(la>24&&la<50&&lo>-125&&lo<-66)||(la>51&&la<72&&lo>-170&&lo<-129)||(la>18.5&&la<22.5&&lo>-161&&lo<-154);
+async function loadAerial(){
+ const merc=(la,lo)=>[6378137*lo*Math.PI/180,6378137*Math.log(Math.tan(Math.PI/4+la*Math.PI/360))];
+ const [laN,loW]=toLatLon(TX0,TZ0),[laS,loE]=toLatLon(TX1,TZ1),[x0,y1]=merc(laN,loW),[x1,y0]=merc(laS,loE);
+ const CW=4096,CH=Math.round(4096*(TZ1-TZ0)/(TX1-TX0)),cv=document.createElement('canvas');cv.width=CW;cv.height=CH;const g=cv.getContext('2d');
+ const nx=2,ny=Math.max(1,Math.ceil(CH/2048)),jobs=[];
+ for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){
+  const px0=Math.round(CW*i/nx),px1=Math.round(CW*(i+1)/nx),py0=Math.round(CH*j/ny),py1=Math.round(CH*(j+1)/ny);
+  const bx0=x0+(x1-x0)*px0/CW,bx1=x0+(x1-x0)*px1/CW,by1=y1-(y1-y0)*py0/CH,by0=y1-(y1-y0)*py1/CH;
+  const url=`https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?bbox=${bx0},${by0},${bx1},${by1}&bboxSR=3857&imageSR=3857&size=${px1-px0},${py1-py0}&format=jpg&transparent=false&f=image`;
+  jobs.push(new Promise((res,rej)=>{const im=new Image();im.crossOrigin='anonymous';const to=setTimeout(()=>rej(new Error('the imagery server timed out')),45000);
+   im.onload=()=>{clearTimeout(to);g.drawImage(im,px0,py0,px1-px0,py1-py0);res();};im.onerror=()=>{clearTimeout(to);rej(new Error('the imagery server refused the request'));};im.src=url;}));}
+ await Promise.all(jobs);
+ g.getImageData(0,0,1,1); // throws if the server did not allow cross-site use
+ return cv;
+}
+const AERIAL=!!settings.aerial&&!settings.google;
+if(AERIAL){
+ if(!IN_US(CITY.lat0,CITY.lon0)){showMsg('USGS aerial imagery','covers the United States only. Showing map colours instead.');}
+ else{setStatus('Loading USGS aerial imagery…');
+  try{aerialCanvas=await loadAerial();aerialTex=new THREE.CanvasTexture(aerialCanvas);aerialTex.colorSpace=THREE.SRGBColorSpace;aerialTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());$('aattrib').hidden=false;}
+  catch(e){console.warn(e);aerialCanvas=null;showMsg('USGS aerial imagery unavailable',String(e.message||e)+'. Showing map colours instead.');}}
+}
+const aerUV=(x,z)=>[(x-TX0)/(TX1-TX0),1-(z-TZ0)/(TZ1-TZ0)];
+
 /* ---------- city (OpenStreetMap) ---------- */
 const WU=25.6,WV=27.2,buildings=[];
-const geos={s:{p:[],n:[],u:[],c:[]},b:{p:[],n:[],u:[],c:[]},g:{p:[],n:[],u:[],c:[]}};let G=geos.s;
+const geos={s:{p:[],n:[],u:[],c:[]},b:{p:[],n:[],u:[],c:[]},g:{p:[],n:[],u:[],c:[]},r:{p:[],n:[],u:[],c:[]}};
+const WHITE=new THREE.Color(1,1,1);
+// roof vertex: aerial photo projected straight down when available, otherwise the plain roof colour
+function roofV(x,y,z,n,col){if(aerialCanvas){const Gs=G;G=geos.r;const uv=aerUV(x,z);pushV(x,y,z,n,uv[0],uv[1],WHITE);G=Gs;}else pushV(x,y,z,n,0.004,0.004,col);}let G=geos.s;
 function pushV(x,y,z,n,u,v,col){G.p.push(x,y,z);G.n.push(n[0],n[1],n[2]);G.u.push(u,v);G.c.push(col.r,col.g,col.b);}
 const BRICK=['#9a4a3a','#8b3f33','#a65a44','#7d4636','#b0715a'].map(h=>new THREE.Color(h)),GLASS=['#7f97ad','#6d8296','#8aa0b0','#5e7486','#9aaab4'].map(h=>new THREE.Color(h));
 const INSET=settings.google&&settings.fillGaps?1.5:0;
@@ -487,7 +519,7 @@ function addBuilding(h,mh,name,flat,shape,rh,wcol,rcol,mat){
   const fl=(-(cz-az)*nn[0]+(cx-ax)*nn[2])<0;
   for(const v of(fl?[A,C,B,A,D,C]:[A,B,C,A,C,D]))pushV(v[0],v[1],v[2],nn,v[3],v[4],col);}
  const tri3=(P0,P1,P2,c)=>{let ux=P1[0]-P0[0],uy=P1[1]-P0[1],uz=P1[2]-P0[2],vx=P2[0]-P0[0],vy=P2[1]-P0[1],vz=P2[2]-P0[2];let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
-  if(ny<0){const t=P1;P1=P2;P2=t;nx=-nx;ny=-ny;nz=-nz;}const l=Math.hypot(nx,ny,nz)||1,nn=[nx/l,ny/l,nz/l];for(const v of[P0,P1,P2])pushV(v[0],v[1],v[2],nn,R,R,c);};
+  if(ny<0){const t=P1;P1=P2;P2=t;nx=-nx;ny=-ny;nz=-nz;}const l=Math.hypot(nx,ny,nz)||1,nn=[nx/l,ny/l,nz/l];for(const v of[P0,P1,P2])roofV(v[0],v[1],v[2],nn,c);};
  if(rh>0){// pitched / pyramid / dome roof: rings from the eave line toward the apex
   const rings=b.s==='d'?5:1;
   for(let i=0;i<n;i++){const j=(i+1)%n;
@@ -500,7 +532,7 @@ function addBuilding(h,mh,name,flat,shape,rh,wcol,rcol,mat){
   let tri=[];try{tri=THREE.ShapeUtils.triangulateShape(contour,[]);}catch(e){tri=[];}
   for(const t of tri){let [i0,i1,i2]=t;const ax=vf[2*i0],az=vf[2*i0+1],bx=vf[2*i1],bz=vf[2*i1+1],cx=vf[2*i2],cz=vf[2*i2+1];
    const ny=(bz-az)*(cx-ax)-(bx-ax)*(cz-az);if(ny<0){const k=i1;i1=i2;i2=k;}
-   for(const k of[i0,i1,i2])pushV(vf[2*k],y1,vf[2*k+1],[0,1,0],R,R,roof);}
+   for(const k of[i0,i1,i2])roofV(vf[2*k],y1,vf[2*k+1],[0,1,0],roof);}
  }
  if(mh>0){const contour=[];for(let i=0;i<n;i++)contour.push(new THREE.Vector2(vf[2*i],vf[2*i+1]));let tri=[];try{tri=THREE.ShapeUtils.triangulateShape(contour,[]);}catch(e){}
   for(const t of tri){let [i0,i1,i2]=t;const ny=(vf[2*i1+1]-vf[2*i0+1])*(vf[2*i2]-vf[2*i0])-(vf[2*i1]-vf[2*i0])*(vf[2*i2+1]-vf[2*i0+1]);if(ny>0){const k=i1;i1=i2;i2=k;}for(const k of[i0,i1,i2])pushV(vf[2*k],y0,vf[2*k+1],[0,-1,0],R,R,roof);}}
@@ -518,7 +550,7 @@ const osmVisuals=[],cityMeshes=[],cityMats=[];
   bg.setAttribute('normal',new THREE.Float32BufferAttribute(g2.n,3));
   bg.setAttribute('uv',new THREE.Float32BufferAttribute(g2.u,2));
   bg.setAttribute('color',new THREE.Float32BufferAttribute(g2.c,3));
-  const mt=new THREE.MeshLambertMaterial({map:TX[k][0],emissiveMap:TX[k][1],emissive:new THREE.Color(0.9,0.84,0.74),vertexColors:true});
+  const mt=k==='r'?new THREE.MeshLambertMaterial({map:aerialTex,emissiveMap:aerialTex,emissive:new THREE.Color(0.45,0.45,0.45)}):new THREE.MeshLambertMaterial({map:TX[k][0],emissiveMap:TX[k][1],emissive:new THREE.Color(0.9,0.84,0.74),vertexColors:true});
   const cm=new THREE.Mesh(bg,mt);scene.add(cm);osmVisuals.push(cm);cityMeshes.push(cm);cityMats.push(mt);}
 }
 // terrain mesh with streets, parks, water and footprints painted into one texture
@@ -536,10 +568,10 @@ const osmVisuals=[],cityMeshes=[],cityMats=[];
  for(const r of CITY.roads){if(!/secondary|primary|trunk/.test(r.c))continue;g.beginPath();r.p.forEach((p,i)=>i?g.lineTo(X(p[0]),Y(p[1])):g.moveTo(X(p[0]),Y(p[1])));g.stroke();}
  g.setLineDash([]);
  for(const b of buildings){if(b.y0>b.base+1)continue;const pts=[];for(let i=0;i<b.n;i++)pts.push([b.pts[2*i],b.pts[2*i+1]]);poly(pts,'#2e2d33');}
- const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+ const tex=aerialTex||new THREE.CanvasTexture(cv);if(!aerialTex){tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());}
  const seg=15,gx=Math.round(W/seg),gz=Math.round(Hh/seg),pg=new THREE.PlaneGeometry(W,Hh,gx,gz);pg.rotateX(-Math.PI/2);pg.translate((TX0+TX1)/2,0,(TZ0+TZ1)/2);
  const pa=pg.attributes.position;for(let i=0;i<pa.count;i++)pa.setY(i,heightAt(pa.getX(i),pa.getZ(i)));pg.computeVertexNormals();
- const tm=new THREE.Mesh(pg,new THREE.MeshLambertMaterial({map:tex}));scene.add(tm);osmVisuals.push(tm);
+ const tm=new THREE.Mesh(pg,aerialTex?new THREE.MeshLambertMaterial({map:tex,emissiveMap:tex,emissive:new THREE.Color(0.45,0.45,0.45)}):new THREE.MeshLambertMaterial({map:tex}));scene.add(tm);osmVisuals.push(tm);
  let lo=1e9;for(let i=0;i<terrain.length;i++)lo=Math.min(lo,terrain[i]);
  const outer=new THREE.Mesh(new THREE.PlaneGeometry(9000,9000),new THREE.MeshLambertMaterial({color:0x5c5862}));outer.rotation.x=-Math.PI/2;outer.position.y=lo-2;scene.add(outer);osmVisuals.push(outer);
  // street trees
@@ -1104,10 +1136,11 @@ function begin(){
 }
 $('play').addEventListener('click',()=>begin());
 $('mapBtn').addEventListener('click',()=>{$('mapPanel').hidden=!$('mapPanel').hidden;});
-function syncMap(){$('modeOSM').setAttribute('aria-pressed',!settings.google);$('modeG').setAttribute('aria-pressed',!!settings.google);$('colMode').setAttribute('aria-pressed',!!settings.tileCol);$('flatMode').setAttribute('aria-pressed',!!settings.flatten);$('flatRoofs').setAttribute('aria-pressed',!!settings.flattenRoofs);$('fillBtn').setAttribute('aria-pressed',!!settings.fillGaps);$('detail').textContent='Tile detail: '+settings.tileDetail;$('detail').setAttribute('aria-pressed',settings.tileDetail==='high');$('gkey').value=settings.gkey||'';}
+function syncMap(){$('modeOSM').setAttribute('aria-pressed',!settings.google&&!settings.aerial);$('modeA').setAttribute('aria-pressed',!!settings.aerial&&!settings.google);$('modeG').setAttribute('aria-pressed',!!settings.google);$('colMode').setAttribute('aria-pressed',!!settings.tileCol);$('flatMode').setAttribute('aria-pressed',!!settings.flatten);$('flatRoofs').setAttribute('aria-pressed',!!settings.flattenRoofs);$('fillBtn').setAttribute('aria-pressed',!!settings.fillGaps);$('detail').textContent='Tile detail: '+settings.tileDetail;$('detail').setAttribute('aria-pressed',settings.tileDetail==='high');$('gkey').value=settings.gkey||'';}
 syncMap();
-$('modeOSM').addEventListener('click',()=>{if(!settings.google)return;settings.google=false;saveSettings();location.reload();});
-$('modeG').addEventListener('click',()=>{settings.gkey=$('gkey').value.trim()||settings.gkey;if(!settings.gkey){$('gkey').focus();setStatus('Paste your key first, then choose Google 3D tiles.');return;}settings.google=true;saveSettings();location.reload();});
+$('modeOSM').addEventListener('click',()=>{if(!settings.google&&!settings.aerial)return;settings.google=false;settings.aerial=false;saveSettings();location.reload();});
+$('modeA').addEventListener('click',()=>{if(settings.aerial&&!settings.google)return;settings.google=false;settings.aerial=true;saveSettings();location.reload();});
+$('modeG').addEventListener('click',()=>{settings.gkey=$('gkey').value.trim()||settings.gkey;if(!settings.gkey){$('gkey').focus();setStatus('Paste your key first, then choose Google 3D tiles.');return;}settings.google=true;settings.aerial=false;saveSettings();location.reload();});
 $('gsave').addEventListener('click',()=>{settings.gkey=$('gkey').value.trim();saveSettings();setStatus(settings.gkey?'Key saved on this device.':'Key cleared.');});
 $('fillBtn').addEventListener('click',()=>{settings.fillGaps=!settings.fillGaps;saveSettings();$('fillBtn').setAttribute('aria-pressed',settings.fillGaps);if(gTiles)location.reload();});
 $('flatRoofs').addEventListener('click',()=>{settings.flattenRoofs=!settings.flattenRoofs;saveSettings();$('flatRoofs').setAttribute('aria-pressed',settings.flattenRoofs);if(gTiles)location.reload();});

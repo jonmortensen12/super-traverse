@@ -10,6 +10,7 @@ The default city is downtown Salt Lake City, built in. Tap **Choose place** to s
 ## What the city is built from
 - Buildings, streets, parks and trees from OpenStreetMap, including real heights and roof shapes (pyramids, spires, domes).
 - Real ground elevation from the free AWS Terrain Tiles, loaded in the browser at startup.
+- Optional USGS aerial mode (United States): public-domain USDA NAIP aerial photos on the ground and projected onto roofs, on the game's own clean geometry.
 - Optional photoreal visuals from Google Photorealistic 3D Tiles. By default you also collide with the Google mesh itself, using live raycasts against the tiles on screen (nothing is saved or rebuilt from Google's data). Height is aligned automatically against street level.
 
 ## Google 3D tiles
@@ -22,6 +23,7 @@ Each page load with Google tiles on uses one billable session (1,000 free per mo
 
 ## Credits
 - Map data © OpenStreetMap contributors, available under the Open Database License (ODbL).
+- Aerial imagery: USDA NAIP via USGS The National Map (public domain).
 - Elevation: Terrain Tiles on AWS (Mapzen terrain, including USGS 3DEP data).
 - Photorealistic 3D Tiles © Google Maps Platform, shown with Google's on-screen attribution.
 - Rendering: three.js, NASA-AMMOS 3DTilesRendererJS and three-mesh-bvh. Place search: Nominatim. Map picker: Leaflet.
