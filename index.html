@@ -143,7 +143,7 @@ input{-webkit-user-select:text;user-select:text}
       <div class="row"><button class="opt" id="detail" aria-pressed="false">Tile detail: normal</button><button class="opt" id="colMode" aria-pressed="true">Collide with Google 3D mesh</button><button class="opt" id="flatMode" aria-pressed="false">Flatten streets</button><button class="opt" id="flatRoofs" aria-pressed="false">Flatten rooftops</button><button class="opt" id="fillBtn" aria-pressed="false">Fill tile gaps with map buildings</button><button class="opt" id="snapBtn" aria-pressed="false">Snap buildings to map shapes (experimental)</button></div>
       <p class="note">The key is saved only in this browser on this device. Each Google session counts as one billable request (1,000 free per month). Switching visuals or flattening reloads the page. Flattening is experimental: it presses cars and clutter onto clean streets, and rooftop gear onto clean roofs where the map height agrees with the real roof.</p>
     </div>
-    <div class="padStat" id="buildStamp"><!--BUILD-->Build 13 · Oct 22, 2026 · 9:26 AM PT<!--/BUILD--></div>
+    <div class="padStat" id="buildStamp"><!--BUILD-->Build 14 · Oct 22, 2026 · 9:57 AM PT<!--/BUILD--></div>
     <div class="go" id="goText">Press Play, or any controller button</div>
     <div class="padStat" id="padStat">Controller not detected yet. Press any button on it to wake it up.</div>
   </div>
@@ -206,7 +206,7 @@ import * as THREE from 'three';
 const $=id=>document.getElementById(id);
 let gTiles=null,gAuth=null,gWrap=null,gStart=0,gDiag=false,gFlat=null,bvhReset=0;
 let tilesAligned=false,autoDH=0,bvhT=0,seatT=0,seatStart=0,tileColFailed=false;
-const tileCol=()=>!!(gTiles&&settings.tileCol&&!settings.snapB&&tilesAligned&&!tileColFailed);
+const tileCol=()=>!!(gTiles&&(settings.tileCol||settings.snapB)&&tilesAligned&&!tileColFailed);
 function setStatus(t){const e=$('loadStat');if(e)e.textContent=t;}
 function showMsg(t,m){const e=$('gmsg');if(e){e.textContent=t+': '+m;e.hidden=false;}}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -927,7 +927,7 @@ function updatePlayer(dt,inp){
  const s=v.length();if(s>T.MAXV)v.multiplyScalar(T.MAXV/s);
  if(P.state==='zip')return;
 
- if(tileCol()){tileCollide(p,v,inp,wish,dt);
+ if(tileCol()){tileCollide(p,v,inp,wish,dt);if(settings.snapB)mapBackstop(p,v);
   if(p.x<BX0-20){p.x=BX0-20;v.x=Math.max(0,v.x);}if(p.x>BX1+20){p.x=BX1+20;v.x=Math.min(0,v.x);}
   if(p.z<BZ0-20){p.z=BZ0-20;v.z=Math.max(0,v.z);}if(p.z>BZ1+20){p.z=BZ1+20;v.z=Math.min(0,v.z);}
  }else{
@@ -974,7 +974,7 @@ let attackCd=2,danger=false;
 function updateEnemies(dt){
  attackCd-=dt;danger=false;
  for(const e of enemies){
-  if(e.dead)continue;if(gTiles&&settings.tileCol&&!settings.snapB&&!tileColFailed&&!e.site.seated)continue;
+  if(e.dead)continue;if(gTiles&&(settings.tileCol||settings.snapB)&&!tileColFailed&&!e.site.seated)continue;
   if(e.state==='idle'&&Math.abs(e.pos.x-P.p.x)+Math.abs(e.pos.z-P.p.z)>260){e.mesh.position.copy(e.pos);continue;}
   e.stateT+=dt;e.flash-=dt;e.stun-=dt;e.swingAnim-=dt;
   const gy=groundAt(e.pos.x,e.pos.z,e.pos.y+0.2);
@@ -1217,7 +1217,7 @@ function updateGoogle(rdt){
  camera.updateMatrixWorld();gTiles.setResolutionFromRenderer(camera,renderer);gTiles.update();
  processReshape(rdt>0.03?3:6);
  if(bvhReset>0&&--bvhReset===0)gTiles.group.traverse(o=>{if(o.isMesh&&o.geometry&&o.geometry.boundsTree){try{o.geometry.disposeBoundsTree();}catch(e){o.geometry.boundsTree=null;}}});
- if((settings.tileCol||settings.snapB||settings.flatten||settings.flattenRoofs)&&!tileColFailed){if(THREE.BufferGeometry.prototype.computeBoundsTree&&!settings.snapB)buildBVHs();seatT-=rdt;if(seatT<=0){seatT=0.5;alignAndSeat();}}
+ if((settings.tileCol||settings.snapB||settings.flatten||settings.flattenRoofs)&&!tileColFailed){if(THREE.BufferGeometry.prototype.computeBoundsTree)buildBVHs();seatT-=rdt;if(seatT<=0){seatT=0.5;alignAndSeat();}}
  if(!gDiag&&performance.now()-gStart>12000&&gTiles.visibleTiles&&gTiles.visibleTiles.size===0)diagnoseGoogle();
  gAttrT-=rdt;if(gAttrT<=0){gAttrT=1;try{const a=[];gAuth.getAttributions(a);const s=a.filter(x=>x.type==='string').map(x=>x.value).join('; ');$('gattribTxt').textContent=s?' · '+s:'';}catch(_){}}
 }
@@ -1300,13 +1300,13 @@ function alignAndSeat(){
   else if(now-seatStart>30000){tilesAligned=true;setupFlatten();}
   return;
  }
- if(!P.seated&&!settings.snapB){
+ if(!P.seated){
   const h=castDown(start.x,start.y+150,start.z,450);
   if(h&&h.ny>0.5){start.y=h.y;P.p.set(start.x,h.y+0.05,start.z);P.v.set(0,0,0);P.seated=true;setState('ground');
    if(settings.tileCol)toast('Colliding with Google 3D buildings');}
   else if(now-seatStart>40000){tileColFailed=true;P.seated=true;showMsg('Google 3D collision','The tiles under the start roof never finished loading, so collision fell back to map shapes.');}
  }
- if(!settings.snapB)for(const s of sites){if(s.seated)continue;if(Math.hypot(s.x-P.p.x,s.z-P.p.z)>420)continue;
+ for(const s of sites){if(s.seated)continue;if(Math.hypot(s.x-P.p.x,s.z-P.p.z)>420)continue;
   const h=castDown(s.x,s.y+120,s.z,320);if(h&&h.ny>0.6){const dy=h.y-s.y;s.y=h.y;s.beam.position.y+=dy;for(const e of s.enemies)e.pos.y+=dy;s.seated=true;}}
 }
 function tileFindAnchor(dir,right,want){
@@ -1363,6 +1363,17 @@ function columnBlock(p,v,hs,dt){
  const tx=-uz,tz=ux;let ok=0;for(const o of[-2,2]){const r=castDown(qx+tx*o,p.y+40,qz+tz*o,37.8);if(r&&r.ny>0.7&&Math.abs(r.y-top.y)<1.5)ok++;}
  if(ok<2)return;
  p.x-=v.x*dt;p.z-=v.z*dt;v.x=0;v.z=0;
+}
+// Snap mode backstop: the mapped buildings the mesh was pressed onto are also solid in their own right,
+// so holes or not-yet-cleaned tiles can't let the hero through a wall or roof.
+function mapBackstop(p,v){
+ const R=0.4,H=1.7;query(p.x-R,p.z-R,p.x+R,p.z+R,QA);
+ for(const b of QA){if(p.y>b.ytop+0.001||p.y+H<b.y0)continue;const inside=pip(b,p.x,p.z);if(!closestEdge(b,p.x,p.z))continue;
+  const ed=CE.d,enx=CE.nx,enz=CE.nz,epx=CE.px,epz=CE.pz;if(!inside&&ed>=R)continue;
+  const top=topAt(b,inside,ed);if(p.y>top+0.001)continue;const hpen=inside?R+ed:R-ed,dy=top-p.y,dyb=p.y+H-b.y0;
+  if(dy<=hpen+(b.rh>0?0.6:0)&&dy<=dyb+0.5){if(P.prevPY===undefined||P.prevPY>=top-0.3||P.grounded){p.y=top;if(v.y<0)v.y=0;P.grounded=true;if(P.state==='air')setState('ground');}}
+  else if(b.y0>b.base+0.5&&dyb<hpen&&v.y>0){p.y=b.y0-H;v.y=0;}
+  else if(P.state!=='wall'){p.x=epx+enx*R;p.z=epz+enz*R;const vn=v.x*enx+v.z*enz;if(vn<0){v.x-=enx*vn;v.z-=enz*vn;}}}
 }
 function tileCollide(p,v,inp,wish,dt){
  const R=0.4,wasG=P.grounded;P.grounded=false;let wall=null;const hs=Math.hypot(v.x,v.z);
@@ -1428,7 +1439,7 @@ function frame(now){
  if(hitstop>0)hitstop-=rdt;else if(slowmo>0)slowmo-=rdt;
  const ts=hitstop>0?0.06:slowmo>0?0.35:1,dt=rdt*ts;clockT+=dt;
  const held={};for(const k in inp)held[k]=k.endsWith('P')?false:inp[k];
- if(gTiles&&settings.tileCol&&!settings.snapB&&!tileColFailed&&!P.seated){if(!P.waitToast){P.waitToast=1;toast('Waiting for Google 3D tiles…');}}else{updatePlayer(dt/2,inp);updatePlayer(dt/2,held);}
+ if(gTiles&&(settings.tileCol||settings.snapB)&&!tileColFailed&&!P.seated){if(!P.waitToast){P.waitToast=1;toast('Waiting for Google 3D tiles…');}}else{updatePlayer(dt/2,inp);updatePlayer(dt/2,held);}
  updateEnemies(dt);updateCamera(rdt,inp);updateHero(dt);updateCars(dt);updateHUD(rdt);
  if(AC&&windG){const sp=P.v.length(),tgt=Math.pow(clamp((sp-8)/60,0,1),1.5)*0.32;windG.gain.setTargetAtTime(tgt,AC.currentTime,0.08);windF.frequency.setTargetAtTime(280+sp*28,AC.currentTime,0.1);}
  updateGoogle(rdt);renderer.render(scene,camera);drawFX();
